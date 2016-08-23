@@ -1,6 +1,10 @@
 package net.floodlightcontroller.intercontroller;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;   
+import java.io.ByteArrayOutputStream;   
+import java.io.ObjectInputStream;   
+import java.io.ObjectOutputStream;   
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -155,6 +159,40 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		return ret;
 		
 	}
+
+	@Override
+	public byte[] toByteArray (Object obj) {      
+        byte[] bytes = null;      
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();      
+        try {        
+            ObjectOutputStream oos = new ObjectOutputStream(bos);         
+            oos.writeObject(obj);        
+            oos.flush();         
+            bytes = bos.toByteArray ();      
+            oos.close();         
+            bos.close();        
+        } catch (IOException ex) {        
+            ex.printStackTrace();   
+        }      
+        return bytes;    
+    } 
+    @Override
+    public Object toObject (byte[] bytes) {      
+        Object obj = null;      
+        try {        
+            ByteArrayInputStream bis = new ByteArrayInputStream (bytes);        
+            ObjectInputStream ois = new ObjectInputStream (bis);        
+            obj = ois.readObject();      
+            ois.close();   
+            bis.close();   
+        } catch (IOException ex) {        
+            ex.printStackTrace();   
+        } catch (ClassNotFoundException ex) {        
+            ex.printStackTrace();   
+        }      
+        return obj;    
+    }  
+
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(
 			IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
@@ -169,7 +207,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		return Command.CONTINUE;
 	}
 	
-	public boolean sendInerConOFMessage(IOFSwitch sw){//, byte[] links){
+	public boolean sendInerConOFMessage(IOFSwitch sw, byte[] data, int type){//, byte[] links){
     	boolean Flag = false;
     	OFSimrpIntercontroller.Builder pob = sw.getOFFactory().buildSimrpIntercontroller();
     	pob.setXid(18);
@@ -177,7 +215,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
     	pob.setControllerVersion(12);
    		pob.setSubtype(2);
    		pob.setDatenumbe(10);   		
-   //		pob.setData(links);	
+   		pob.setData(data);	
     	try {
 			if (log.isTraceEnabled()) {
 				log.trace("write broadcast packet on switch-id={} " +
@@ -214,7 +252,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 				LDUpdate a =  linkUpdates.get(i);
 				log.info("topology changed!!!!!!:{}",a);
 				IOFSwitch sw = switchService.getSwitch(a.getSrc());
-				sendInerConOFMessage(sw);//,(byte[])a);
+				byte[] data = toByteArray(a);
+				sendInerConOFMessage(sw, data, 1);//,(byte[])a);
 			}
 		topologyUpdateFlag = true;
 		}
