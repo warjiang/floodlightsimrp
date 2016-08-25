@@ -178,7 +178,7 @@ IFloodlightModule, IInfoProvider {
 	private static final String LLDP_BSN_DST_MAC_STRING = "ff:ff:ff:ff:ff:ff";
 
 	// Direction TLVs are used to indicate if the LLDPs were sent
-	// periodically or in response to a recieved LLDP  //TLV is short for TYPE-LENGTH-VALUE
+	// periodically or in response to a recieved LLDP
 	private static final byte TLV_DIRECTION_TYPE = 0x73;
 	private static final short TLV_DIRECTION_LENGTH = 1; // 1 byte
 	private static final byte TLV_DIRECTION_VALUE_FORWARD[] = { 0x01 };
@@ -304,7 +304,7 @@ IFloodlightModule, IInfoProvider {
 
 		// using "nearest customer bridge" MAC address for broadest possible
 		// propagation
-		// through provider and TPMR(Two-Port MAC Relay) bridges (see IEEE 802.1AB-2009 and
+		// through provider and TPMR bridges (see IEEE 802.1AB-2009 and
 		// 802.1Q-2011),
 		// in particular the Linux bridge which behaves mostly like a provider
 		// bridge
@@ -312,11 +312,9 @@ IFloodlightModule, IInfoProvider {
 		// later
 		byte[] portId = new byte[] { 2, 0, 0 }; // filled in later
 		byte[] ttlValue = new byte[] { 0, 0x78 };
-		// OpenFlow OUI - 00-26-E1-00     OUI = Organization Unique Identifier
+		// OpenFlow OUI - 00-26-E1-00
 		byte[] dpidTLVValue = new byte[] { 0x0, 0x26, (byte) 0xe1, 0, 0, 0,
 				0, 0, 0, 0, 0, 0 };
-		//如果LLDP type是127，则按照组织定义TLV的格式将其存储到远端MIB库，存储格式为type， length，value，OUI，组织自定义子类型，以及信息域。
-		//LLDP type=127 means LLDP will be store in remote MIB, format: type,length, value, OUI, domain and others.
 		LLDPTLV dpidTLV = new LLDPTLV().setType((byte) 127)
 				.setLength((short) dpidTLVValue.length)
 				.setValue(dpidTLVValue);
@@ -419,7 +417,7 @@ IFloodlightModule, IInfoProvider {
 		byte[] data = ethernet.serialize();
 		OFPacketOut.Builder pob = iofSwitch.getOFFactory().buildPacketOut();
 		pob.setBufferId(OFBufferId.NO_BUFFER);
-		pob.setInPort(OFPort.CONTROLLER);
+		pob.setInPort(OFPort.ANY);
 
 		// set data and data length
 		pob.setData(data);

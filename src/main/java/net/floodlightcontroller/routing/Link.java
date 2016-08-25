@@ -34,8 +34,6 @@ public class Link implements Comparable<Link> {
     private OFPort dstPort;
     @JsonProperty("latency") 
     private U64 latency; /* we intentionally exclude the latency from hashcode and equals */
-    @JsonProperty("bandwidch") 
-    private U64 bandwidch;
 
     public Link(DatapathId srcId, OFPort srcPort, DatapathId dstId, OFPort dstPort, U64 latency) {
         this.src = srcId;
@@ -76,10 +74,6 @@ public class Link implements Comparable<Link> {
     public void setSrc(DatapathId src) {
         this.src = src;
     }
-    
-    public void setBW() {
-        this.bandwidch = bandwidch ;
-    }
 
     public void setSrcPort(OFPort srcPort) {
         this.srcPort = srcPort;
@@ -94,13 +88,9 @@ public class Link implements Comparable<Link> {
     }
     
     public void setLatency(U64 latency) {
-     	this.latency = latency;
+    	this.latency = latency;
     }
-    
-    public void setBW(U64 bandwidch) {
-     	this.bandwidch = bandwidch;
-    }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;

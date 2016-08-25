@@ -199,7 +199,7 @@ public class DeviceManagerImpl implements IDeviceService, IOFMessageListener, IT
 			DEFAULT_SYNC_STORE_CONSOLIDATE_INTERVAL_MS;
 
 	/**
-	 * Time in milliseconds before entities will expire     60min
+	 * Time in milliseconds before entities will expire
 	 */
 	protected static final int ENTITY_TIMEOUT = 60*60*1000;
 
@@ -294,7 +294,7 @@ public class DeviceManagerImpl implements IDeviceService, IOFMessageListener, IT
 	/**
 	 * A device update event to be dispatched
 	 */
-	public static class DeviceUpdate {
+	protected static class DeviceUpdate {
 		public enum Change {
 			ADD, DELETE, CHANGE;
 		}
@@ -1174,7 +1174,7 @@ public class DeviceManagerImpl implements IDeviceService, IOFMessageListener, IT
 	protected Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx) {
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
-		// Extract source entity information 提取来源实体信息
+		// Extract source entity information
 		Entity srcEntity = getSourceEntityFromPacket(eth, sw.getId(), inPort);
 		if (srcEntity == null) {
 			cntInvalidSource.increment();

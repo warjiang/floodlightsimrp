@@ -264,7 +264,7 @@ public class TopologyInstance {
 
     /**
      * @author Srinivasan Ramasubramanian
-     * ~fencu~
+     *
      * This function divides the network into clusters. Every cluster is
      * a strongly connected component. The network may contain unidirectional
      * links.  The function calls dfsTraverse for performing depth first

@@ -153,7 +153,7 @@ public class OFDPAUtils {
 					);
 
 	/**
-	 * Determine whether or not the provided switch is an OF-DPA switch.   OF-DPA:openflow data plane abstraction
+	 * Determine whether or not the provided switch is an OF-DPA switch.
 	 * 
 	 * @param sw, the switch to check
 	 * @return true if the switch is an OF-DPA switch; false otherwise

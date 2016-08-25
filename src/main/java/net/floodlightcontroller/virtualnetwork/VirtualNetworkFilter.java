@@ -310,6 +310,7 @@ implements IFloodlightModule, IVirtualNetworkService, IOFMessageListener {
 		portToMac = new ConcurrentHashMap<String, MacAddress>();
 		macToGateway = new ConcurrentHashMap<MacAddress, IPv4Address>();
 		deviceListener = new DeviceListenerImpl();
+
 	}
 
 	@Override

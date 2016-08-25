@@ -39,7 +39,7 @@ import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
-import org.projectfloodlight.openflow.protocol.OFSimrpIntercontroller;
+import org.projectfloodlight.openflow.protocol.OFSimrp;
 import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.slf4j.Logger;
@@ -160,7 +160,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		
 	}
 
-	@Override
+	
 	public byte[] toByteArray (Object obj) {      
         byte[] bytes = null;      
         ByteArrayOutputStream bos = new ByteArrayOutputStream();      
@@ -176,7 +176,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
         }      
         return bytes;    
     } 
-    @Override
+    
     public Object toObject (byte[] bytes) {      
         Object obj = null;      
         try {        
@@ -209,13 +209,13 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	
 	public boolean sendInerConOFMessage(IOFSwitch sw, byte[] data, int type){//, byte[] links){
     	boolean Flag = false;
-    	OFSimrpIntercontroller.Builder pob = sw.getOFFactory().buildSimrpIntercontroller();
+    	OFSimrp.Builder pob = sw.getOFFactory().buildSimrp();
     	pob.setXid(18);
-    	pob.setControllerSoftware((short) 1);
-    	pob.setControllerVersion(12);
-   		pob.setSubtype(2);
-   		pob.setDatenumbe(10);   		
-   		pob.setData(data);	
+    	pob.setControllersoftware((short) 1);
+    	pob.setControllerversion(12);
+   	pob.setSubtype(2);
+  //	pob.setDatenumbe(10);   		
+   	pob.setData(data);	
     	try {
 			if (log.isTraceEnabled()) {
 				log.trace("write broadcast packet on switch-id={} " +

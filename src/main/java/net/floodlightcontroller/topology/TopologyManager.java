@@ -1175,7 +1175,7 @@ public class TopologyManager implements IFloodlightModule, ITopologyService, IRo
 
 	/**
 	 * This function computes a new topology instance.
-	 * It ignores links connected to all domain ports
+	 * It ignores links connected to all broadcast domain ports
 	 * and tunnel ports. The method returns if a new instance of
 	 * topology was created or not.
 	 */
