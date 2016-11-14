@@ -1,11 +1,7 @@
 package net.floodlightcontroller.intercontroller;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.io.*;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -28,6 +24,7 @@ import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryListener;
 import net.floodlightcontroller.linkdiscovery.ILinkDiscoveryService;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.IPv6;
+import net.floodlightcontroller.packetstreamer.thrift.PacketStreamer.Client;
 import net.floodlightcontroller.restserver.IRestApiService;
 import net.floodlightcontroller.routing.IRoutingService;
 import net.floodlightcontroller.routing.Link;
@@ -35,6 +32,8 @@ import net.floodlightcontroller.threadpool.IThreadPoolService;
 import net.floodlightcontroller.topology.ITopologyListener;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.util.OFMessageDamper;
+
+import net.floodlightcontroller.intercontroller.interControllerConnection.*;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
@@ -45,7 +44,7 @@ import org.slf4j.LoggerFactory;
 
 
 public class intercontroller implements IOFMessageListener, IFloodlightModule,
-		ITopologyListener, ILinkDiscoveryListener,  Serializable{
+		ITopologyListener, ILinkDiscoveryListener,  Serializable {
 	
 	/**
 	 * 
@@ -70,6 +69,7 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 	
 	protected static int OFMESSAGE_DAMPER_CAPACITY = 10000; // TODO: find sweet spot
 	protected static int OFMESSAGE_DAMPER_TIMEOUT = 250; // ms
+	protected ArrayList<Socket> clientSocket;
 	
 	protected class controllerObjet{
 		protected String controllerSoftwareName; //floodlight
@@ -81,8 +81,20 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 		protected Set<Device>  controllerIncdevices;
 	}
 	
-
-  
+	public ServerSocket myServerSocket;
+	
+	public class perfixIP {
+		IPv4  controllerIpv4Address;
+		int mask;
+	}
+	public class Path{
+		ArrayList<Integer> ASpath;
+		Integer priority;
+		double pathValue;
+	}
+	
+	public String fileName = "ASneighbor.conf";
+	public Map <Integer,Path> RIB;
 	public static final String MODULE_NAME = "InterController";
 	
 	@Override
@@ -138,6 +150,7 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
 		switchService = context.getServiceImpl(IOFSwitchService.class);
 		deviceService = context.getServiceImpl(IDeviceService.class);
+		myServerSocket.
 		
 		messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
 				EnumSet.of(OFType.EXPERIMENTER),
@@ -152,7 +165,7 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 		linkDiscoveryService.addListener(this);
 		floodlightProviderService.addOFMessageListener(OFType.EXPERIMENTER, this);
 		if (topology != null)
-			topology.addListener(this);
+			topology.addListener(this);	
 	}
 	
 	public Command processExperimenterMessage(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
@@ -260,6 +273,7 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 		topologyUpdateFlag = true;
 		}
 	}
+		
 }
 
 

@@ -175,6 +175,11 @@ public class intercontrollerdevice implements IOFMessageListener, IFloodlightMod
 			// We need to go before forwarding
 			return false;
 		}
+		
+		public void run(){
+			
+		}
+		
     	
     }
 }
