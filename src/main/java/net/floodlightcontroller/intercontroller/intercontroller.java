@@ -150,7 +150,6 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 		linkDiscoveryService = context.getServiceImpl(ILinkDiscoveryService.class);
 		switchService = context.getServiceImpl(IOFSwitchService.class);
 		deviceService = context.getServiceImpl(IDeviceService.class);
-		myServerSocket.
 		
 		messageDamper = new OFMessageDamper(OFMESSAGE_DAMPER_CAPACITY,
 				EnumSet.of(OFType.EXPERIMENTER),
