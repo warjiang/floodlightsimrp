@@ -33,7 +33,7 @@ import net.floodlightcontroller.topology.ITopologyListener;
 import net.floodlightcontroller.topology.ITopologyService;
 import net.floodlightcontroller.util.OFMessageDamper;
 
-import net.floodlightcontroller.intercontroller.interControllerConnection.*;
+import net.floodlightcontroller.intercontroller.intercontrollerconnection.*;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
@@ -259,7 +259,7 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 	@Override
 	public void topologyChanged(List<LDUpdate> linkUpdates) {
 		// TODO Auto-generated method stub
-		log.info("topology changed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*******************************************************************************");
+/*		log.info("topology changed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*******************************************************************************");
 		if (linkUpdates != null) {
 			for(int i=0; i<linkUpdates.size();i++){
 				LDUpdate a =  linkUpdates.get(i);
@@ -270,7 +270,7 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 				sendInerConOFMessage(sw, data, 1);//,(byte[])a);
 			}
 		topologyUpdateFlag = true;
-		}
+		}*/
 	}
 		
 }
