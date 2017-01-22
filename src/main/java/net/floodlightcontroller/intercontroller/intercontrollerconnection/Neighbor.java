@@ -114,4 +114,17 @@ public class Neighbor{
 			return true;
 		return false;
 	}	
+	
+	public boolean sameSrcDest(Neighbor AS){
+		// ignore the attribute 
+		if(this.ASnodeSrc.equals(AS.ASnodeSrc) 
+				&& this.outPort.equals(AS.outPort) 
+				&& this.outSwitch.equals(AS.outSwitch)
+				&& this.ASnodeDest.equals(AS.ASnodeDest) 
+				&& this.inPort.equals(AS.inPort) 
+				&& this.inSwitch.equals(AS.inSwitch))
+			return true;
+		return false;
+	}
+	
 }

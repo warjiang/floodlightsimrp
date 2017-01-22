@@ -14,7 +14,7 @@ public class MultiPath {
 	public Map<Integer, SectionAttri> delayMap;
 	public Map<Integer, Integer> perviousNode;
 	public Map<Integer,Map<Integer,ASpath>> RIBFromlocal; //<ASnumDest,<key, ASpath>>
-	public int confSizeMB;
+	public int confSizeGB;
 	public int unKnowASnum = -1;
 	public int pathKeyForBestPath = 0;
 	public int MaxPathNum = 3;
@@ -25,7 +25,7 @@ public class MultiPath {
 		this.delayMap = new HashMap<Integer, SectionAttri>(); //ASnodeDestNum, val; maybe need to check
 		this.perviousNode = new HashMap<Integer, Integer>(); //ASnodeDestNum, previousNodeNum;
 		this.RIBFromlocal = new HashMap<Integer,Map<Integer,ASpath>>();//<ASnumDest,<key, ASpath>>
-		this.confSizeMB = InterSocket.confSizeMB;
+		this.confSizeGB = InterSocket.confSizeGB;
 		this.MaxPathNum = InterSocket.MaxPathNum;
 	}
 	
@@ -54,7 +54,7 @@ public class MultiPath {
 				open.add(ASnodeNum);
 			else 
 				close.add(ASnumSrc);
-			if(NIB.get(ASnumSrc).containsKey(ASnodeNum)){
+			if(NIB.containsKey(ASnumSrc) && NIB.get(ASnumSrc).containsKey(ASnodeNum)){
 				delayMap.put(ASnodeNum, NIB.get(ASnumSrc).get(ASnodeNum).attribute);
 				perviousNode.put(ASnodeNum, ASnumSrc);	
 			}
@@ -97,7 +97,7 @@ public class MultiPath {
 					tmpLatency   = this.delayMap.get(nodeClose).latency + NIB.get(nodeClose).get(nodeOpen).getLatency();
 	        		tmpBandwidth = this.delayMap.get(nodeClose).bandwidth < NIB.get(nodeClose).get(nodeOpen).getBandwidth()?
 							delayMap.get(nodeClose).bandwidth : NIB.get(nodeClose).get(nodeOpen).getBandwidth();
-					tmpDelay = tmpLatency + 8000*confSizeMB/tmpBandwidth;  //src to dest	
+					tmpDelay = pathValue(tmpLatency, tmpBandwidth); //src to dest
 						
 					if(minValue> tmpDelay && tmpBandwidth>0){
 						minValue = tmpDelay;
@@ -129,10 +129,9 @@ public class MultiPath {
 		if(newSection != null){
 			close.add(newSection.ASnumDest);
 			open.remove(newSection.ASnumDest);
-			int tmpDealyPre = this.delayMap.get(newSection.ASnumDest).latency 
-					+ 8000*confSizeMB/this.delayMap.get(newSection.ASnumDest).bandwidth;
-			int tmpDealyCur = newSection.attribute.latency 
-					+ 8000*confSizeMB/newSection.attribute.bandwidth;						
+			int tmpDealyPre = pathValue(this.delayMap.get(newSection.ASnumDest).latency,this.delayMap.get(newSection.ASnumDest).bandwidth);
+			int tmpDealyCur = pathValue(newSection.attribute.latency, newSection.attribute.bandwidth);
+					
 			if(tmpDealyPre > tmpDealyCur){
 				this.delayMap.put(newSection.ASnumDest, newSection.attribute);
 				this.perviousNode.put(newSection.ASnumDest, newSection.ASnumSrc);
@@ -161,7 +160,7 @@ public class MultiPath {
 		path.priority  = MaxPathNum - pathKey;
 		path.latency   =  delayMap.get(tmpASnumDest).latency;
 		path.bandwidth =  delayMap.get(tmpASnumDest).bandwidth;
-		path.delay     = path.latency + 8000*confSizeMB/path.bandwidth;
+		path.delay     = pathValue(path.latency, path.bandwidth);
 		path.pathKey   = pathKey;
 		path.pathNode.addFirst(tmpASnumDest);
 		//get the Path through the perviousNode.
@@ -210,7 +209,7 @@ public class MultiPath {
 		int ASnumSrcTmp = 0;
 		int ASnumDestTmp = 0;
 		if(pathKey == 1){ //remove all the used Section int the best path
-			if(this.RIBFromlocal.get(ASnumDest).containsKey(pathKeyForBestPath)){
+			if(this.RIBFromlocal.containsKey(ASnumDest) &&this.RIBFromlocal.get(ASnumDest).containsKey(pathKeyForBestPath)){
 				path = this.RIBFromlocal.get(ASnumDest).get(pathKeyForBestPath).clone();
 				if(!path.pathNode.isEmpty()){
 					ASnumDestTmp = path.pathNode.getLast();
@@ -227,7 +226,7 @@ public class MultiPath {
 		}
 		else{ //update the used path.bandwidth
 			for(int i =0; i<pathKey; i++){
-				if(!this.RIBFromlocal.get(ASnumDest).containsKey(i))
+				if(!(this.RIBFromlocal.containsKey(ASnumDest)&&this.RIBFromlocal.get(ASnumDest).containsKey(i)))
 					break;
 				path = this.RIBFromlocal.get(ASnumDest).get(i).clone();
 				int pathBandwidth = path.bandwidth;		
@@ -293,5 +292,13 @@ public class MultiPath {
 				updateRIBFromLocal(ASnumSrc, ASnumDest, pathKey, ASnodeNumList);
 			}
 		}
+	}
+	
+	public int pathValue(int latency, int bandWidth){
+		if (bandWidth<0)
+			return Integer.MAX_VALUE;
+		int Value = Integer.MAX_VALUE;
+		Value = latency + 8000 * this.confSizeGB/bandWidth;
+		return Value;
 	}
 }

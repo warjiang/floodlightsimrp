@@ -95,7 +95,7 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 	
 	public String fileName = "ASneighbor.conf";
 	public Map <Integer,Path> RIB;
-	public static final String MODULE_NAME = "InterController";
+	public static final String MODULE_NAME = "intersocket";
 	
 	@Override
 	public String getName() {
@@ -105,8 +105,8 @@ public class intercontroller implements IOFMessageListener, IFloodlightModule,
 
 	@Override
 	public boolean isCallbackOrderingPrereq(OFType type, String name) {
-		// TODO Auto-generated method stub
 		return false;
+		 
 	}
 
 	@Override

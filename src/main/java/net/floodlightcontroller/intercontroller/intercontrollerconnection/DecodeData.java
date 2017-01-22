@@ -27,10 +27,10 @@ public class DecodeData {
 	//len=6, change byte[] To IP + mask
 	public static InetAddress byte2IPperfix(byte[] msg, int begin){
 		InetAddress res = null ;
-	//	String tmp  = (int)(msg[begin]&0xff)+"."+ (msg[begin+1]&0xff)+"."
-	//			+ (msg[begin+2]&0xff)+"."+ (msg[begin+3]&0xff);
+		String tmp  = (int)(msg[begin]&0xff)+"."+ (msg[begin+1]&0xff)+"."
+				+ (msg[begin+2]&0xff)+"."+ (msg[begin+3]&0xff);
 		try {
-			res = InetAddress.getByAddress(msg);
+			res = InetAddress.getByName(tmp);
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -56,11 +56,13 @@ public class DecodeData {
 		res.inPort  = OFPort.of(byte2Int(msg,begin+32));
 		for(int i=0 ; i<8; i++)
 			tmp[i] = msg[begin+36+i];
-		res.outSwitch = DatapathId.of(tmp);
+		res.inSwitch = DatapathId.of(tmp);
 		
 		res.attribute.latency = byte2Int(msg, begin+44);
 		res.attribute.bandwidth = byte2Int(msg, begin+48);
 		res.delay = 0;
+		res.ASnodeSrc.IPperfix.ipPerfixInt = IPperfix.IP2perfix(res.ASnodeSrc.IPperfix);
+		res.ASnodeDest.IPperfix.ipPerfixInt = IPperfix.IP2perfix(res.ASnodeDest.IPperfix);
 		return res;
 	}
 }

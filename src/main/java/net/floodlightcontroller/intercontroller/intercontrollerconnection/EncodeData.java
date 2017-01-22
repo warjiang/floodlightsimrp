@@ -2,6 +2,7 @@ package net.floodlightcontroller.intercontroller.intercontrollerconnection;
 
 import java.net.InetAddress;
 import java.util.LinkedList;
+import java.util.Map;
 
 import org.projectfloodlight.openflow.types.DatapathId;
 
@@ -217,7 +218,7 @@ public class EncodeData {
 		for(int j=0; j<4; j++)
 			data[4 + j] = tmp[j];
 		for(int j=0; j<2; j++)  //mask src
-			data[20 + j] = tmp[j];
+			data[20 + j] = tmp[4+j];
 		tmp = int2ByteArray(neighborSection.outPort.getPortNumber());
 		for(int j=0; j<4; j++)
 			data[8 + j] = tmp[j];
@@ -232,7 +233,7 @@ public class EncodeData {
 		for(int j=0; j<4; j++)
 			data[28 + j] = tmp[j];
 		for(int j=0; j<2; j++)  //mask Dest
-			data[22+j] = tmp[j];
+			data[22+j] = tmp[4+j];
 		tmp = int2ByteArray(neighborSection.inPort.getPortNumber());
 		for(int j=0; j<4; j++)
 			data[32 + j] = tmp[j];		
@@ -249,8 +250,9 @@ public class EncodeData {
 		return data;
 	}
 
+	
 	/**
-	 * updata  typeInHead->0x0003
+	 * update  typeInHead->0x0003
 	 * 4*3 + (4*1 + len*52) + 2 + 2
 	 * *************************
 	 *          head           4*3
@@ -270,8 +272,8 @@ public class EncodeData {
 	 * @return
 	 */
 	public static byte[] creatUpdate(int listLen, Neighbor[] neighborSections){
-		int len = 4*3 + 4*1 + listLen*52 + 2;
-		byte[] updata = new byte[len];
+		int len = 4*3 + 4*1 + listLen*52 + 4;
+		byte[] update = new byte[len];
 		byte[] tmp;
 		
 		//creat mag head
@@ -280,27 +282,27 @@ public class EncodeData {
 		type[1] = (byte)0x03;
 		byte[] bXid = new byte[4];
 		bXid[3] = (byte)0x03;
-		updata = setHead(updata, type, bXid);					
+		update = setHead(update, type, bXid);					
 		tmp = int2ByteArray(len);
 		for(int i =0; i<4; i++)
-			updata[8+i] = tmp[i];
+			update[8+i] = tmp[i];
 		
 		tmp = int2ByteArray(listLen);
 		for(int i =0; i<4; i++)
-			updata[12+i] = tmp[i];		
+			update[12+i] = tmp[i];		
 		for(int i=0; i<listLen; i++){
 			tmp = neighborSection2Byte(neighborSections[i]);
 			for(int j=0; j<52; j++)
-				updata[16+ 52 *i+j] = tmp[j];
+				update[16+ 52 *i+j] = tmp[j];
 		}
-		tmp = checkSum(updata, 8);
+		tmp = checkSum(update, 8);
 		for(int i=0; i<2; i++)
-			updata[len-2+i] = tmp[i];
-		return updata;
+			update[len-2+i] = tmp[i];
+		return update;
 	}
 	
 	/**
-	 * updata  typeInHead->0x0003
+	 * update  typeInHead->0x0003
 	 * 4*3 + (4*1 + len*52) + 2 + 2
 	 * *************************
 	 *          head           4*3
@@ -320,7 +322,7 @@ public class EncodeData {
 	 */
 	public static byte[] creatUpdate(Neighbor neighborSection){
 		int len = 4*3 + 4*1 + 52 + 4;
-		byte[] updata = new byte[len];
+		byte[] update = new byte[len];
 		byte[] tmp;
 		
 		//creat mag head
@@ -329,23 +331,61 @@ public class EncodeData {
 		type[1] = (byte)0x03;
 		byte[] bXid = new byte[4];
 		bXid[3] = (byte)0x03;
-		updata = setHead(updata, type, bXid);					
+		update = setHead(update, type, bXid);					
 		tmp = int2ByteArray(len);
 		for(int i =0; i<4; i++)
-			updata[8+i] = tmp[i];
+			update[8+i] = tmp[i];
 		
 		tmp = int2ByteArray(1);
 		for(int i =0; i<4; i++)
-			updata[12+i] = tmp[i];		
+			update[12+i] = tmp[i];		
 		tmp = neighborSection2Byte(neighborSection);
 		for(int j=0; j<52; j++)
-			updata[16+j] = tmp[j];
-		tmp = checkSum(updata, 8);
+			update[16+j] = tmp[j];
+		tmp = checkSum(update, 8);
 		for(int i=0; i<2; i++)
-			updata[len-2+i] = tmp[i];
-		return updata;
+			update[len-2+i] = tmp[i];
+		return update;
 	}
 
+	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
+		int listLen = 0;
+		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
+			listLen += entryA.getValue().size();
+		
+		int len = 4*3 + 4*1 + listLen*52 + 4;
+		byte[] update = new byte[len];
+		byte[] tmp;
+		
+		//create msg head
+		byte[] type = new byte[2];
+		type[0] = (byte)0x00;
+		type[1] = (byte)0x03;
+		byte[] bXid = new byte[4];
+		bXid[3] = (byte)0x03;
+		update = setHead(update, type, bXid);					
+		tmp = int2ByteArray(len);
+		for(int i =0; i<4; i++)
+			update[8+i] = tmp[i];
+		
+		tmp = int2ByteArray(listLen);
+		for(int i =0; i<4; i++)
+			update[12+i] = tmp[i];
+		int i = 0;
+		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
+			for(Map.Entry<Integer,Neighbor> entryB : entryA.getValue().entrySet() ) {
+				tmp = neighborSection2Byte(entryB.getValue());
+				for(int j=0; j<52; j++)
+					update[16+ 52 *i+j] = tmp[j];
+				i++;
+		}
+		update[len-3] = (byte)0x01; //it's update NIB all msg
+		tmp = checkSum(update, 8);
+		for(i=0; i<2; i++)
+			update[len-2+i] = tmp[i];
+		return update;
+	}
+	
 	/**
 	 * creat updateRIB msg by the linkedList
 	 *              head               12
@@ -366,7 +406,7 @@ public class EncodeData {
 			nodeNum += ASpaths.get(i).pathNode.size();
 	
 		int len = 12 + 4 + 8*pathNum + nodeNum*4 + 4;
-		byte[] updataRIB = new byte[len];
+		byte[] updateRIB = new byte[len];
 		byte[] tmp;
 		
 		//creat msg head
@@ -375,14 +415,14 @@ public class EncodeData {
 		type[1] = (byte)0x04;
 		byte[] bXid = new byte[4];
 		bXid[3] = (byte)0x04;
-		updataRIB = setHead(updataRIB, type, bXid);					
+		updateRIB = setHead(updateRIB, type, bXid);					
 		tmp = int2ByteArray(len);
 		for(int i =0; i<4; i++)
-			updataRIB[8+i] = tmp[i];
+			updateRIB[8+i] = tmp[i];
 		
 		tmp = int2ByteArray(pathNum);
 		for(int i =0; i<4; i++)
-			updataRIB[8+i] = tmp[i];
+			updateRIB[8+i] = tmp[i];
 		
 		int index = 16;
 		for(int j=0; j<pathNum; j++){
@@ -392,24 +432,25 @@ public class EncodeData {
 			}
 			tmp = int2ByteArray(tmpASpath.pathNode.size());
 			for(int i =0; i<2; i++)  // get 2 low byte
-				updataRIB[index+i] = tmp[i+2];	
+				updateRIB[index+i] = tmp[i+2];	
 			tmp = int2ByteArray(tmpASpath.pathKey);
 			for(int i =0; i<2; i++)  // get 2 low byte
-				updataRIB[index+2+i] = tmp[i+2];	
+				updateRIB[index+2+i] = tmp[i+2];	
 			tmp = int2ByteArray(tmpASpath.src);  //ASnumSrc
 			for(int i =0; i<4; i++)
-				updataRIB[index+2+i] = tmp[i];	
+				updateRIB[index+2+i] = tmp[i];	
 			
 			tmp = NodeList2ByteArray(tmpASpath.pathNode);
 			for(int i =0; i<tmpASpath.pathNode.size()*4; i++)  
-				updataRIB[index+4+i] = tmp[i];	
+				updateRIB[index+4+i] = tmp[i];	
 			index += 4*2 + tmpASpath.pathNode.size()*4;
 		}
 		
-		tmp = checkSum(updataRIB, 8);
+		tmp = checkSum(updateRIB, 8);
 		for(int i=0; i<2; i++)
-			updataRIB[len-2+i] = tmp[i];
+			updateRIB[len-2+i] = tmp[i];
 		
-		return updataRIB;
+		return updateRIB;
 	}
+
 }

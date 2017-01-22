@@ -8,10 +8,12 @@ import java.net.UnknownHostException;
 public  class IPperfix {
 	InetAddress IP;
 	Integer mask;
+	int ipPerfixInt;
 	
 	public IPperfix(){
 	//	this.IP = new InetAddress();
 		this.mask = 0;
+		this.ipPerfixInt = 0;
 	}
 	
 	public InetAddress getIP(){
@@ -25,6 +27,10 @@ public  class IPperfix {
 		IPperfix res = new IPperfix();
 		res.IP   = this.IP;
 		res.mask = this.mask;
+		if(this.ipPerfixInt == 0)
+			res.ipPerfixInt = IP2perfix(this.IP.toString(), this.mask);
+		else
+			res.ipPerfixInt = this.ipPerfixInt;
 		return res;
 	}
 	
@@ -35,6 +41,7 @@ public  class IPperfix {
 			this.mask = mask;
 		else
 			this.mask = 32;
+		this.ipPerfixInt = IP2perfix(ipStr, mask);
 	}
 	
 	public boolean ifCorrect(){
@@ -44,14 +51,48 @@ public  class IPperfix {
 	}
 	
 	/**
+	 * @param String ipAddr,Integer mask
+	 * @return ip&mask
+	 */
+	public static int IP2perfix(InetAddress ip,Integer mask){
+		String ipAddr = ip.toString();
+		if(ipAddr.contains("/"))
+			ipAddr = ipAddr.split("/")[1]; 
+		String[] ipStr = ipAddr.split("\\."); 
+		int ipInt = (Integer.parseInt(ipStr[0])<<24)
+				|(Integer.parseInt(ipStr[1])<<16)
+				|(Integer.parseInt(ipStr[2])<<8)
+				|(Integer.parseInt(ipStr[3]));
+		int maskInt = 0xFFFFFFFF<<(32- mask);
+		return ipInt&maskInt;
+	}
+	
+	/**
+	 * @param String ipAddr,Integer mask
+	 * @return ip&mask
+	 */
+	public static int IP2perfix(String ipAddr,Integer mask){
+		if(ipAddr.contains("/"))
+			ipAddr = ipAddr.split("/")[1]; 
+		String[] ipStr = ipAddr.split("\\."); 
+		int ipInt = (Integer.parseInt(ipStr[0])<<24)
+				|(Integer.parseInt(ipStr[1])<<16)
+				|(Integer.parseInt(ipStr[2])<<8)
+				|(Integer.parseInt(ipStr[3]));
+		int maskInt = 0xFFFFFFFF<<(32- mask);
+		return ipInt&maskInt;
+	}
+	
+	/**
 	 * @param perfix
 	 * @return ip&mask
 	 */
 	public static int IP2perfix(IPperfix perfix){
 		String ipAddr = perfix.IP.toString();
-		if(ipAddr.contains("\\/"))
-			ipAddr = ipAddr.split("\\/")[1]; 
+		if(ipAddr.contains("/"))
+			ipAddr = ipAddr.split("/")[1]; 
 		String[] ipStr = ipAddr.split("\\."); 
+		int a = Integer.parseInt(ipStr[0])<<24;  // problem
 		int ipInt = (Integer.parseInt(ipStr[0])<<24)
 				|(Integer.parseInt(ipStr[1])<<16)
 				|(Integer.parseInt(ipStr[2])<<8)
