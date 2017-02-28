@@ -67,6 +67,24 @@ public class updateRIB {
 		//add the path to updateRIB
 		for(int i=0; i<ASpaths.size(); i++){
 			ASpath tmpPath = ASpaths.get(i);
+			if(tmpPath.type==0x40){//remove the old ASpath from RIB
+				if(InterSocket.curRIB.containsKey(tmpPath.src)&&InterSocket.curRIB.get(tmpPath.src).containsKey(tmpPath.dest)){
+					InterSocket.curRIB.get(tmpPath.src).remove(tmpPath.dest);
+					
+					//update updateRIB
+					ASpath newASpath = tmpPath.cloneBeginWithNextHop();
+					if(InterSocket.updateRIB.containsKey(newASpath.pathNode.get(0)))
+						InterSocket.updateRIB.get(newASpath.pathNode.get(0)).add(newASpath);
+					else{
+						LinkedList<ASpath> newASpaths = new LinkedList<ASpath>();	
+						newASpaths.add(newASpath);
+						InterSocket.updateRIB.put(newASpath.pathNode.get(0),  newASpaths);
+					}
+					getNewRIBFlag = true;
+					continue;
+				}
+			}
+			
 			//CurRIB has the same path with the receive path, do not need update
 			if(InterSocket.curRIB.containsKey(tmpPath.src)&&InterSocket.curRIB.get(tmpPath.src).containsKey(tmpPath.dest)
 					&&InterSocket.curRIB.get(tmpPath.src).get(tmpPath.dest).containsKey(tmpPath.pathKey)

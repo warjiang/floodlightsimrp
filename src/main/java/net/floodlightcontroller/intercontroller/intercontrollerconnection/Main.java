@@ -24,7 +24,7 @@ public class Main {
 		
 		Main.NIB = ReadConfig.readNIBFromFile(configAddress);		
 		myNeighbors = Main.NIB.get(60001);
-		ASnodeNumList    = getAllASnumFromNeighbors(myNeighbors);
+		ASnodeNumList    = getAllASnumFromNIB(Main.NIB);
 		
 		MultiPath CurMultiPath       = new MultiPath();
 		CurMultiPath.updatePath(myASnum, Main.NIB, ASnodeNumList, 0);
@@ -61,5 +61,18 @@ public class Main {
 			tmp.add(entry.getValue().getASnumDest());
 		}
 		return tmp;
+	}
+	
+	private static HashSet<Integer> getAllASnumFromNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
+		HashSet<Integer> tmp = new HashSet<Integer>();
+		for(Map.Entry<Integer,Map<Integer,Neighbor>>  entryA: NIB.entrySet())
+			for(Map.Entry<Integer,Neighbor>  entryB: entryA.getValue().entrySet()){
+			if(!tmp.contains(entryB.getValue().getASnumSrc()))
+				tmp.add(entryB.getValue().getASnumSrc());
+			if(!tmp.contains(entryB.getValue().getASnumDest()))
+				tmp.add(entryB.getValue().getASnumDest());
+		}
+		return tmp;
+		
 	}
 }

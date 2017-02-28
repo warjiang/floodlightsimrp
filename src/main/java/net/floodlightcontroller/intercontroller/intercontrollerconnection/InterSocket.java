@@ -32,7 +32,9 @@ import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.util.SingletonTask;
+import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Ethernet;
+import net.floodlightcontroller.packet.ICMP;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.TCP;
 import net.floodlightcontroller.routing.IRoutingDecision;
@@ -43,7 +45,9 @@ import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.types.EthType;
+import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
+import org.python.modules.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,19 +58,23 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	 */
 	private static final long serialVersionUID = 1L;
 	private static Logger log=LoggerFactory.getLogger(InterSocket.class);
+	//SIMRP parameters
 	public static int holdingTime = 180;
 	public static int SIMRPVersion = 1;
-	public static int sendHelloDuration = 100;
-	public static int sendUpdateNIBFirstCheck = 100;
-	public static Integer keepaliveTime = 60000; //60ms
-	public int durationBeforeFirstRIB = 60000;  //60ms, it can be 5s or longer. 
+	public static int sendHelloDuration = 10;
+	public static int sendUpdateNIBFirstCheck = 30;
+	public static Integer keepaliveTime = 10; //60s
+	public int durationBeforeFirstRIB = 30;  //60s, it can be 5s or longer. 
+	public int clientReconnectTimes = 20;
 
 	public Integer serverPort = 51118;
 	public Integer  SERSOCK_INTERVAL_MS = 600;
-	public static int  confSizeGB  = 2; //1G
+	public static int  confSizeMB  = 1024; //1G
 	public static int myASnum  = 0;
-	public static int MaxPathNum  = 3;
-	public String configAddress = "src/main/java/net/floodlightcontroller/" +
+	public static int MaxPathNum  = 8;
+	public static int minBandwidth = 1; //min bandwidth for the path(Mbps);
+	public static int maxLatency = 100000000; //max latency for the path(ms);
+ 	public String configAddress = "src/main/java/net/floodlightcontroller/" +
 			"intercontroller/intercontrollerconnection/ASconfig/ASconfig.conf";
 	
 	public static Map<Integer, Neighbor> myNeighbors = null; //<ASDestnum, Neighbor>
@@ -206,7 +214,9 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 			InterSocket.updateNIBFlagTotal = true;
 			MultiPath CurMultiPath       = new MultiPath();
 			CurMultiPath.updatePath(myASnum, NIB, ASnodeNumList, 0);
-			for(Map.Entry<Integer, Neighbor> entry: myNeighbors.entrySet())
+			
+			// for the first time , we will send totoal NIB, so it's no need send update
+/*			for(Map.Entry<Integer, Neighbor> entry: myNeighbors.entrySet())
 				for(int ASnum : ASnodeNumList){
 					if(ASnum == myASnum)
 						continue;
@@ -218,7 +228,8 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 						InterSocket.updateNIB.put(ASnum, tmpHashSet);
 					}
 					InterSocket.updateFlagNIB.put(ASnum, true);
-				}
+				}*/
+			
 			
 			floodlightProviderService.addOFMessageListener(OFType.PACKET_IN, this); //start to listen for packetIn					
 		} catch (IOException e) {
@@ -236,14 +247,13 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 						!mySockets.containsKey(entry.getValue().ASnodeDest.ASnum)){
 					Socket clientSocket = null;
 					int reconnectTime = 0;
-					while(clientSocket == null && reconnectTime<10){
+					while(clientSocket == null && reconnectTime<clientReconnectTimes){
 						try {
-							clientSocket = new Socket(entry.getValue().ASnodeDest.IPperfix.IP, serverPort);
-							clientSocket.setSoTimeout(1000); //10s reconnect
+							Time.sleep(2);
+							clientSocket = new Socket(entry.getValue().ASnodeDest.IPperfix.IP, serverPort);	
+						//	clientSocket.setSoTimeout(10000); //10s reconnect
 						//	clientSocket.
 						} catch (IOException e) {
-							// TODO Auto-generated catch block							
-							//e.printStackTrace();
 							reconnectTime++;
 							log.info("client{} connect failed {} times", entry.getValue().ASnodeDest.IPperfix.IP, reconnectTime);
 							continue;
@@ -281,11 +291,29 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	 */
 	public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx){
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-		if (eth.getEtherType() == EthType.IPv4) { /* shallow check for equality is okay for EthType */
+		ASpath path = null;
+		if(eth.getEtherType() == EthType.ARP){
+			 ARP arp = (ARP) eth.getPayload();
+			 IPv4Address srcIP  = arp.getSenderProtocolAddress();
+			 IPv4Address destIP = arp.getTargetProtocolAddress();
+			 path = Routing.getRoutingPath(srcIP,destIP);
+			 if(path != null){
+				 
+				 return Command.STOP; 
+			 }		 
+			 else
+				 return Command.CONTINUE;//it's NOT interDomain problem/ has no path
+				 
+		}
+		else if (eth.getEtherType() == EthType.IPv4) { /* shallow check for equality is okay for EthType */ 
 			IPv4 ip = (IPv4) eth.getPayload();
 			if (ip.getProtocol().equals(IpProtocol.TCP)) {
 				TCP tcp = (TCP) ip.getPayload();
-				int a =0;
+
+			}
+			if (ip.getProtocol().equals(IpProtocol.ICMP)) {
+				ICMP icmp = (ICMP) ip.getPayload();
+
 			}
 		}
 		

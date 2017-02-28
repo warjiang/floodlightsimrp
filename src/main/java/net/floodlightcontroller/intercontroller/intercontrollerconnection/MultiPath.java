@@ -14,7 +14,7 @@ public class MultiPath {
 	public Map<Integer, SectionAttri> delayMap;
 	public Map<Integer, Integer> perviousNode;
 	public Map<Integer,Map<Integer,ASpath>> RIBFromlocal; //<ASnumDest,<key, ASpath>>
-	public int confSizeGB;
+	public int confSizeMB;
 	public int unKnowASnum = -1;
 	public int pathKeyForBestPath = 0;
 	public int MaxPathNum = 3;
@@ -25,7 +25,7 @@ public class MultiPath {
 		this.delayMap = new HashMap<Integer, SectionAttri>(); //ASnodeDestNum, val; maybe need to check
 		this.perviousNode = new HashMap<Integer, Integer>(); //ASnodeDestNum, previousNodeNum;
 		this.RIBFromlocal = new HashMap<Integer,Map<Integer,ASpath>>();//<ASnumDest,<key, ASpath>>
-		this.confSizeGB = InterSocket.confSizeGB;
+		this.confSizeMB = InterSocket.confSizeMB;
 		this.MaxPathNum = InterSocket.MaxPathNum;
 	}
 	
@@ -93,23 +93,25 @@ public class MultiPath {
 		for(Integer nodeOpen : open){			
 			for(Integer nodeClose :close){
 				if(NIB.get(nodeClose).containsKey(nodeOpen) && NIB.get(nodeClose).get(nodeOpen).getBandwidth()>0){	
-					flag = true;
+					
 					tmpLatency   = this.delayMap.get(nodeClose).latency + NIB.get(nodeClose).get(nodeOpen).getLatency();
 	        		tmpBandwidth = this.delayMap.get(nodeClose).bandwidth < NIB.get(nodeClose).get(nodeOpen).getBandwidth()?
 							delayMap.get(nodeClose).bandwidth : NIB.get(nodeClose).get(nodeOpen).getBandwidth();
 					tmpDelay = pathValue(tmpLatency, tmpBandwidth); //src to dest
-						
-					if(minValue> tmpDelay && tmpBandwidth>0){
+					if(tmpLatency>InterSocket.maxLatency||tmpBandwidth<InterSocket.minBandwidth)
+						continue;
+					if(minValue> tmpDelay){
 						minValue = tmpDelay;
 						tmpSectionAttri.bandwidth = tmpBandwidth;
 						tmpSectionAttri.latency   = tmpLatency;
 						NodeNumInClose = nodeClose;
 						NodeNumInOpen  = nodeOpen;
 					}
+					flag = true;
 				}
 			}
 		}
-		if(!flag || tmpSectionAttri.bandwidth<=0) //there is no link between open and close
+		if(!flag || tmpSectionAttri.bandwidth<InterSocket.minBandwidth) //there is no link between open and close, double check the bandwidth
 			return null;
 		section.ASnumSrc  = NodeNumInClose;
 		section.ASnumDest = NodeNumInOpen;
@@ -283,13 +285,15 @@ public class MultiPath {
 			}
 		}
 		else{
-			for(int ASnumDest:ASnodeNumList){
-				if(ASnumSrc==ASnumDest)
-					continue;
-				newNIB = updateNIB(NIB, ASnumDest, pathKey);
-				MultiPathInit(ASnumSrc, newNIB, ASnodeNumList);
-				calculatePath(newNIB);
-				updateRIBFromLocal(ASnumSrc, ASnumDest, pathKey, ASnodeNumList);
+			for(int iKey=pathKey; iKey<MaxPathNum; iKey++){
+				for(int ASnumDest:ASnodeNumList){
+					if(ASnumSrc==ASnumDest)
+						continue;
+					newNIB = updateNIB(NIB, ASnumDest, iKey);
+					MultiPathInit(ASnumSrc, newNIB, ASnodeNumList);
+					calculatePath(newNIB);
+					updateRIBFromLocal(ASnumSrc, ASnumDest, iKey, ASnodeNumList);
+				}
 			}
 		}
 	}
@@ -298,7 +302,7 @@ public class MultiPath {
 		if (bandWidth<0)
 			return Integer.MAX_VALUE;
 		int Value = Integer.MAX_VALUE;
-		Value = latency + 8000 * this.confSizeGB/bandWidth;
+		Value = latency + 8000 * this.confSizeMB/bandWidth;
 		return Value;
 	}
 }

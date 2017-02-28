@@ -11,12 +11,38 @@ public class updateNIB {
 		//	Map<Integer, Neighbor> tmpNeighbors = new HashMap<Integer, Neighbor> ();
 		Neighbor[] newNeighbors = new Neighbor[len];
 		for(int i=0; i< len; i++){
-			newNeighbors[i] = DecodeData.byte2Neighbor(msg,16 + 52*i);	
-			//update the node list
+			newNeighbors[i] = DecodeData.byte2Neighbor(msg,16 + 48*i);	
 			int ASsrcNum  = newNeighbors[i].ASnodeSrc.ASnum;
 			int ASdestNum = newNeighbors[i].ASnodeDest.ASnum;
+			
+			if(newNeighbors[i].type==0x40){ //the neighbor need to be deleted
+				if (InterSocket.NIB.containsKey(ASsrcNum)&&
+						InterSocket.NIB.get(ASsrcNum).containsKey(ASdestNum)){
+					InterSocket.NIB.get(ASsrcNum).remove(ASdestNum);
+					
+					//update the toBeUpdateList for every ASnum in ASnodeNumList but myASnum
+					for(int ASnum : InterSocket.ASnodeNumList){
+						if(ASnum == InterSocket.myASnum||ASnum==ASsrcNum)
+							continue;
+						if(InterSocket.updateNIB.containsKey(ASnum))
+							InterSocket.updateNIB.get(ASnum).add(newNeighbors[i]); 
+						else{
+							HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
+							tmpHashSet.add(newNeighbors[i]);
+							InterSocket.updateNIB.put(ASnum, tmpHashSet);
+						}
+						InterSocket.updateFlagNIB.put(ASnum, true);	
+						InterSocket.updateNIBFlagTotal = true;
+					}	
+					getNewNeighborFalg = true;					
+				}
+				continue;
+			}
+			
+			//update the node list
+			
 			if(!InterSocket.ASnodeNumList.contains(ASsrcNum)){
-				InterSocket.ASnodeNumList.add(ASsrcNum);
+				InterSocket.ASnodeNumList.add(ASsrcNum);//only add, do not delete. as it can be a lonely AS
 				InterSocket.ASnodeList.put(ASsrcNum, newNeighbors[i].ASnodeSrc);
 			}
 			if(!InterSocket.ASnodeNumList.contains(ASdestNum)){
@@ -45,8 +71,8 @@ public class updateNIB {
 						InterSocket.updateNIB.put(ASnum, tmpHashSet);
 					}
 					InterSocket.updateFlagNIB.put(ASnum, true);	
-				}
-				InterSocket.updateNIBFlagTotal = true;
+					InterSocket.updateNIBFlagTotal = true;
+				}	
 				getNewNeighborFalg = true;
 			}
 			else if(!InterSocket.NIB.get(ASsrcNum).containsKey(ASdestNum) ||
@@ -69,8 +95,8 @@ public class updateNIB {
 						InterSocket.updateNIB.put(ASnum, tmpHashSet);
 					}
 					InterSocket.updateFlagNIB.put(ASnum, true);	
+					InterSocket.updateNIBFlagTotal = true;
 				}
-				InterSocket.updateNIBFlagTotal = true;
 				getNewNeighborFalg = true;
 			}
 			InterSocket.NIBwriteLock = false; //lock NIB		

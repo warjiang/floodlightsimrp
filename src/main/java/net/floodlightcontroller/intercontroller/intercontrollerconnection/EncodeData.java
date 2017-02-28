@@ -94,13 +94,13 @@ public class EncodeData {
 	}
 
 	public static byte[] NodeList2ByteArray(LinkedList<Integer> pathNode){
-		int len = 4*(pathNode.size()-1);
+		int len = 2*(pathNode.size()-1);
 		byte[] res = new byte[len];
 		byte[] tmp;
 		for(int i=0; i <len; i++){
 			tmp = int2ByteArray(pathNode.get(i));
-			for(int j=0; j<4; j++)
-				res[4*i + j] = tmp[j];
+			for(int j=0; j<2; j++)
+				res[2*i + j] = tmp[j+2];
 		}
 		return res;
 	}
@@ -109,7 +109,7 @@ public class EncodeData {
 	 * hello  typeInHead->0x0001
 	 * ************************************
 	 *    version     |  holdingTime
-	 *              ASnumber
+	 *    ASnumber    |
 	 *               TLV
 	 *       F        |   checkSum
 	 * ************************************
@@ -145,8 +145,8 @@ public class EncodeData {
 		for(int i=0; i<2; i++)
 			hello[14+i] = tmp[i];
 		tmp = int2ByteArray(myASnum);
-		for(int i =0; i<4; i++)
-			hello[16+i] = tmp[i];
+		for(int i =0; i<2; i++)
+			hello[16+i] = tmp[i+2];
 		if(attr!=null) {
 			for(int i=0; i<attr.length; i++){
 				tmp = AttributeTLV.attributeTLV2ByteArray(attr[i]);
@@ -158,21 +158,27 @@ public class EncodeData {
 			tmp = checkSum(hello, 8);
 			for(int i=0; i<2; i++)
 				hello[20+8*attr.length+2+i] = tmp[i];
+			return hello;
 		}
+		hello[20]   = 0x00;
+		hello[21] = flag;
+		tmp = checkSum(hello, 8);
+		for(int i=0; i<2; i++)
+			hello[22+i] = tmp[i];
 		return hello;		
 	}
 	/**
 	 * keepalive typeInHead -> 0x0002
 	 * ************************************
 	 *               head
-	 *             AS number
-	 *             keeptime
+	 *      AS number  |    keeptime
 	 *             timestamp
-	 *         TF      |  checkSum
-	 * *************************************            
+	 *         TN TR   |    checkSum
+	 * *************************************        
+	 * xid did not be used now.    
 	 */
 	public static byte[] creatKeepalive(int myASnum, int keepTime, byte flag){
-		int len = 28; //4*(3+4)
+		int len = 24; //4*(3+3)
 		byte[] keepalive = new byte[len]; //
 		byte[] tmp;
 		
@@ -191,69 +197,71 @@ public class EncodeData {
 		for(int i =0; i<4; i++)
 			keepalive[8+i] = tmp[i];
 		tmp = int2ByteArray(myASnum);
-		for(int i =0; i<4; i++)
-			keepalive[12+i] = tmp[i];
+		for(int i =0; i<2; i++)
+			keepalive[12+i] = tmp[i+2];
 		tmp = int2ByteArray(keepTime); //ms
-		for(int i =0; i<4; i++)
-			keepalive[16+i] = tmp[i];
+		for(int i =0; i<2; i++)
+			keepalive[14+i] = tmp[i+2];
 		long timeStamp = System.currentTimeMillis();
 		tmp = long2ByteArray(timeStamp);
 		for(int i=0; i <4; i++)
-			keepalive[20+i] = tmp[4+i]; //only use the low 4byte  ms
-		keepalive[25] = flag;
+			keepalive[16+i] = tmp[4+i]; //only use the low 4byte  ms
+		keepalive[21] = flag;
 		tmp = checkSum(keepalive, 8);
 		for(int i=0; i<2; i++)
-			keepalive[26+i] = tmp[i];
+			keepalive[22+i] = tmp[i];
 		return keepalive;
 	}
 	
-	//len = 52
+	//len = 48
 	public static byte[] neighborSection2Byte(Neighbor neighborSection){
 		byte[] tmp;
-		byte[] data = new byte[52];
-		tmp = int2ByteArray(neighborSection.ASnodeSrc.ASnum);
-		for(int j=0; j<4; j++)
-			data[j] = tmp[j];
+		byte[] data = new byte[48];
+		
 		tmp = IPperfix.IPperfix2ByteArray(neighborSection.ASnodeSrc.IPperfix);
 		for(int j=0; j<4; j++)
-			data[4 + j] = tmp[j];
+			data[j] = tmp[j];
 		for(int j=0; j<2; j++)  //mask src
-			data[20 + j] = tmp[4+j];
+			data[18 + j] = tmp[4+j];
 		tmp = int2ByteArray(neighborSection.outPort.getPortNumber());
 		for(int j=0; j<4; j++)
-			data[8 + j] = tmp[j];
+			data[4 + j] = tmp[j];
 		tmp = long2ByteArray(neighborSection.outSwitch.getLong());
 		for(int j=0; j<8; j++)
-			data[12 + j] = tmp[j];
+			data[8 + j] = tmp[j];
+		tmp = int2ByteArray(neighborSection.ASnodeSrc.ASnum);
+		for(int j=0; j<2; j++)
+			data[16+j] = tmp[j+2];
 		
 		tmp = int2ByteArray(neighborSection.ASnodeDest.ASnum);
-		for(int j=0; j<4; j++)
-			data[24+j] = tmp[j];
+		for(int j=0; j<2; j++)
+			data[20+j] = tmp[j+2];
 		tmp = IPperfix.IPperfix2ByteArray(neighborSection.ASnodeDest.IPperfix);
 		for(int j=0; j<4; j++)
-			data[28 + j] = tmp[j];
+			data[24 + j] = tmp[j];
 		for(int j=0; j<2; j++)  //mask Dest
-			data[22+j] = tmp[4+j];
+			data[18+j] = tmp[4+j];
 		tmp = int2ByteArray(neighborSection.inPort.getPortNumber());
 		for(int j=0; j<4; j++)
-			data[32 + j] = tmp[j];		
+			data[28 + j] = tmp[j];		
 		tmp = long2ByteArray(neighborSection.inSwitch.getLong());
 		for(int j=0; j<8; j++)
-			data[36 + j] = tmp[j];
+			data[32 + j] = tmp[j];
 		
 		tmp = int2ByteArray(neighborSection.attribute.latency);
 		for(int j=0; j<4; j++)
-			data[44 + j] = tmp[j];
+			data[40 + j] = tmp[j];
+		data[40] = (byte) (data[40]|neighborSection.type); 
 		tmp = int2ByteArray(neighborSection.attribute.bandwidth);
 		for(int j=0; j<4; j++)
-			data[48 + j] = tmp[j];
+			data[44 + j] = tmp[j];
 		return data;
 	}
 
 	
 	/**
 	 * update  typeInHead->0x0003
-	 * 4*3 + (4*1 + len*52) + 2 + 2
+	 * 4*3 + (4*1 + len*48) + 2 + 2
 	 * *************************
 	 *          head           4*3
 	 *          ListLength     4*1 
@@ -261,7 +269,7 @@ public class EncodeData {
      *          outPort        2*1
 	 *          outSwitchMAC   4*2
 	 *          mask           2+2  mask
-	 *          ASnodeDest     4+4+2
+	 *          ASnodeDest     2+4+2
 	 *          inPort         2*1
 	 *          inSwitchMAC    4*2
 	 *          TLV            4*2  (latency + bandwidth)
@@ -272,7 +280,7 @@ public class EncodeData {
 	 * @return
 	 */
 	public static byte[] creatUpdate(int listLen, Neighbor[] neighborSections){
-		int len = 4*3 + 4*1 + listLen*52 + 4;
+		int len = 4*3 + 4*1 + listLen*48 + 4;
 		byte[] update = new byte[len];
 		byte[] tmp;
 		
@@ -292,25 +300,26 @@ public class EncodeData {
 			update[12+i] = tmp[i];		
 		for(int i=0; i<listLen; i++){
 			tmp = neighborSection2Byte(neighborSections[i]);
-			for(int j=0; j<52; j++)
-				update[16+ 52 *i+j] = tmp[j];
+			for(int j=0; j<48; j++)
+				update[16+ 48 *i+j] = tmp[j];
 		}
 		tmp = checkSum(update, 8);
 		for(int i=0; i<2; i++)
 			update[len-2+i] = tmp[i];
 		return update;
 	}
-	
+
+
 	/**
 	 * update  typeInHead->0x0003
-	 * 4*3 + (4*1 + len*52) + 2 + 2
+	 * 4*3 + (4*1 + len*48) + 2 + 2
 	 * *************************
 	 *          head           4*3
 	 *          ListLength     4*1 
-	 *          ASnodeSrc      4+4+2 //ASnum, IPperfix(IP + mask)
+	 *          ASnodeSrc      2+4+2 //ASnum, IPperfix(IP + mask)
      *          outPort        2*1
 	 *          outSwitchMAC   4*2
-	 *          ASnodeDest     4+4+2
+	 *          ASnodeDest     2+4+2
 	 *          inPort         2*1
 	 *          inSwitchMAC    4*2
 	 *          TLV            4*2  (latency + bandwidth)
@@ -321,7 +330,7 @@ public class EncodeData {
 	 * @return
 	 */
 	public static byte[] creatUpdate(Neighbor neighborSection){
-		int len = 4*3 + 4*1 + 52 + 4;
+		int len = 4*3 + 4*1 + 48 + 4;
 		byte[] update = new byte[len];
 		byte[] tmp;
 		
@@ -340,7 +349,7 @@ public class EncodeData {
 		for(int i =0; i<4; i++)
 			update[12+i] = tmp[i];		
 		tmp = neighborSection2Byte(neighborSection);
-		for(int j=0; j<52; j++)
+		for(int j=0; j<48; j++)
 			update[16+j] = tmp[j];
 		tmp = checkSum(update, 8);
 		for(int i=0; i<2; i++)
@@ -348,12 +357,14 @@ public class EncodeData {
 		return update;
 	}
 
+	
+
 	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
 		int listLen = 0;
 		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
 			listLen += entryA.getValue().size();
 		
-		int len = 4*3 + 4*1 + listLen*52 + 4;
+		int len = 4*3 + 4*1 + listLen*48 + 4;
 		byte[] update = new byte[len];
 		byte[] tmp;
 		
@@ -375,8 +386,8 @@ public class EncodeData {
 		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
 			for(Map.Entry<Integer,Neighbor> entryB : entryA.getValue().entrySet() ) {
 				tmp = neighborSection2Byte(entryB.getValue());
-				for(int j=0; j<52; j++)
-					update[16+ 52 *i+j] = tmp[j];
+				for(int j=0; j<48; j++)
+					update[16+ 48 *i+j] = tmp[j];
 				i++;
 		}
 		update[len-3] = (byte)0x01; //it's update NIB all msg
@@ -390,14 +401,12 @@ public class EncodeData {
 	 * creat updateRIB msg by the linkedList
 	 *              head               12
 	 *              length             4
-	 *        
-	 *    pathLength  |   pathKey      4
-	 *             ASnumSrc            4
-	 *             pathNode            4*len
-	 *             
+	 *type|pathLength |   pathKey      4
+	 *    ASnumSrc    |   ASnumDest    4
+	 *             pathNode            2*len    
 	 *                | checkSum       4
 	 * @param LinkedList<ASpath> ASpaths
-	 * @return  byte[12 + 4 + ASpathNum* (2+2+4+pathNode.size()*4)];
+	 * @return  byte[12 + 4 + ASpathNum* (2+2+4+pathNode.size()*2)];
 	 */
 	public static byte[] creatUpdateRIB(LinkedList<ASpath> ASpaths){
 		int pathNum = ASpaths.size();
@@ -405,7 +414,7 @@ public class EncodeData {
 		for(int i=0; i< pathNum; i++)
 			nodeNum += ASpaths.get(i).pathNode.size();
 	
-		int len = 12 + 4 + 8*pathNum + nodeNum*4 + 4;
+		int len = 12 + 4 + pathNum*8 + nodeNum*2 + 4;//shangwei xiugai 
 		byte[] updateRIB = new byte[len];
 		byte[] tmp;
 		
@@ -430,20 +439,23 @@ public class EncodeData {
 			if(tmpASpath.src==tmpASpath.dest||tmpASpath.pathNode.size()<=1){
 				continue;
 			}
-			tmp = int2ByteArray(tmpASpath.pathNode.size());
+			tmp = int2ByteArray(tmpASpath.pathKey);
 			for(int i =0; i<2; i++)  // get 2 low byte
 				updateRIB[index+i] = tmp[i+2];	
-			tmp = int2ByteArray(tmpASpath.pathKey);
+			updateRIB[index] = (byte)(updateRIB[index]&(tmpASpath.type));
+			tmp = int2ByteArray(tmpASpath.pathNode.size());
 			for(int i =0; i<2; i++)  // get 2 low byte
 				updateRIB[index+2+i] = tmp[i+2];	
 			tmp = int2ByteArray(tmpASpath.src);  //ASnumSrc
-			for(int i =0; i<4; i++)
-				updateRIB[index+2+i] = tmp[i];	
-			
+			for(int i =0; i<2; i++)
+				updateRIB[index+4+i] = tmp[i+2];	
+			tmp = int2ByteArray(tmpASpath.dest);  //ASnumDest
+			for(int i =0; i<2; i++)
+				updateRIB[index+6+i] = tmp[i+2];	
 			tmp = NodeList2ByteArray(tmpASpath.pathNode);
-			for(int i =0; i<tmpASpath.pathNode.size()*4; i++)  
-				updateRIB[index+4+i] = tmp[i];	
-			index += 4*2 + tmpASpath.pathNode.size()*4;
+			for(int i =0; i<tmpASpath.pathNode.size()*2; i++)  
+				updateRIB[index+8+i] = tmp[i];	
+			index += 4*2 + tmpASpath.pathNode.size()*2;
 		}
 		
 		tmp = checkSum(updateRIB, 8);
@@ -452,5 +464,5 @@ public class EncodeData {
 		
 		return updateRIB;
 	}
-
+	
 }

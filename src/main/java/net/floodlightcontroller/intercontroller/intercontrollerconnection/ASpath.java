@@ -11,6 +11,8 @@ public class ASpath {
 	public int bandwidth;
 	public int delay; // delay = latency(ms) + 8000*confSizeMB/bandwidth (MB/Mbps)
 	public int pathKey;
+	public byte type; //0x00 add or modify; 0x40 delete 
+	public boolean times; //if inuse or not;
 	public LinkedList<Integer> pathNode;	
 	
 	public ASpath(){
@@ -22,6 +24,8 @@ public class ASpath {
 		this.bandwidth = Integer.MAX_VALUE;
 		this.delay     = Integer.MAX_VALUE;
 		this.pathKey   = -1;
+		this.type      = 0x00;
+		this.times     = true;
 		this.pathNode  = new LinkedList<Integer>();
 	}
 	
@@ -35,6 +39,8 @@ public class ASpath {
 		res.bandwidth = this.bandwidth;
 		res.delay     = this.delay;
 		res.pathKey   = this.pathKey;
+		res.type      = this.type;
+		res.times     = true;
 		for(int i =0; i<this.pathNode.size(); i++)
 			res.pathNode.add(this.pathNode.get(i));	
 		return res;
@@ -50,6 +56,7 @@ public class ASpath {
 		res.bandwidth = this.bandwidth;
 		res.delay     = this.delay;
 		res.pathKey   = this.pathKey;
+		res.type      = this.type;
 		for(int i =1; i<this.pathNode.size(); i++)
 			res.pathNode.add(this.pathNode.get(i));	
 		return res;

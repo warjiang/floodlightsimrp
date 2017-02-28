@@ -38,28 +38,29 @@ public class DecodeData {
 		return res;
 	}
 	
-	//begin == 16+52*i;
+	//begin == 16+48*i;
 	public static Neighbor byte2Neighbor(byte[] msg, int begin){
 		Neighbor res = new Neighbor();
-		res.ASnodeSrc.ASnum = byte2Int(msg, begin);
-		res.ASnodeSrc.IPperfix.IP = byte2IPperfix(msg, begin+4);
-		res.outPort  = OFPort.of(byte2Int(msg,begin+8));
+		res.ASnodeSrc.ASnum = byte2Integer(msg, begin+16);
+		res.ASnodeSrc.IPperfix.IP = byte2IPperfix(msg, begin);
+		res.outPort  = OFPort.of(byte2Int(msg,begin+4));
 		
 		byte[] tmp = new byte[8];
 		for(int i=0 ; i<8; i++)
-			tmp[i] = msg[begin+12+i];
+			tmp[i] = msg[begin+8+i];
 		res.outSwitch = DatapathId.of(tmp);
-		res.ASnodeSrc.IPperfix.mask = byte2Integer(msg,begin+20);
+		res.ASnodeSrc.IPperfix.mask = byte2Integer(msg,begin+18);
 		res.ASnodeDest.IPperfix.mask = byte2Integer(msg,begin+22);
-		res.ASnodeDest.ASnum = byte2Int(msg,begin+24);
-		res.ASnodeDest.IPperfix.IP = byte2IPperfix(msg, begin+28);
-		res.inPort  = OFPort.of(byte2Int(msg,begin+32));
+		res.ASnodeDest.ASnum = byte2Integer(msg,begin+20);
+		res.ASnodeDest.IPperfix.IP = byte2IPperfix(msg, begin+24);
+		res.inPort  = OFPort.of(byte2Int(msg,begin+28));
 		for(int i=0 ; i<8; i++)
-			tmp[i] = msg[begin+36+i];
+			tmp[i] = msg[begin+32+i];
 		res.inSwitch = DatapathId.of(tmp);
-		
-		res.attribute.latency = byte2Int(msg, begin+44);
-		res.attribute.bandwidth = byte2Int(msg, begin+48);
+		res.type = (byte) (msg[begin+40]&(0xc0));	
+		msg[begin+40] = (byte)(msg[begin+40]&(0x3f));
+		res.attribute.latency = byte2Int(msg, begin+40);
+		res.attribute.bandwidth = byte2Int(msg, begin+44);
 		res.delay = 0;
 		res.ASnodeSrc.IPperfix.ipPerfixInt = IPperfix.IP2perfix(res.ASnodeSrc.IPperfix);
 		res.ASnodeDest.IPperfix.ipPerfixInt = IPperfix.IP2perfix(res.ASnodeDest.IPperfix);

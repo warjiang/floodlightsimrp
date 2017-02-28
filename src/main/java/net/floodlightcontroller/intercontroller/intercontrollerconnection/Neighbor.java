@@ -18,6 +18,7 @@ public class Neighbor{
 	public DatapathId inSwitch; 
 	public SectionAttri attribute;
 	public int delay;  //delay = latency(ms) + 8000*confSizeMB/bandwidth (MB/Mbps)
+	public byte type = 0x00;  //0x00 add, 0x40 delete, 0x80 modify
 	
 	public Neighbor(){
 		this.ASnodeDest = new ASnode();
@@ -39,6 +40,7 @@ public class Neighbor{
 		res.inSwitch   = this.inSwitch;
 		res.attribute  = this.attribute.clone();
 		res.delay      = this.delay;
+		res.type       = this.type;   
 		return res;
 	}
 	
