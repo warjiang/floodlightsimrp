@@ -15,7 +15,7 @@ public class updateNIB {
 			int ASsrcNum  = newNeighbors[i].ASnodeSrc.ASnum;
 			int ASdestNum = newNeighbors[i].ASnodeDest.ASnum;
 			
-			if(newNeighbors[i].type==0x40){ //the neighbor need to be deleted
+			if(!newNeighbors[i].type){ //the neighbor need to be deleted
 				if (InterSocket.NIB.containsKey(ASsrcNum)&&
 						InterSocket.NIB.get(ASsrcNum).containsKey(ASdestNum)){
 					InterSocket.NIB.get(ASsrcNum).remove(ASdestNum);

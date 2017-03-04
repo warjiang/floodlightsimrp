@@ -168,7 +168,8 @@ public class MultiPath {
 		//get the Path through the perviousNode.
 		while(tmpASnum != ASnumSrc && tmpASnum >=0){
 			tmpASnum = perviousNode.get(tmpASnumDest).intValue();
-			if(ASnodeNumList.contains(tmpASnum)){
+			//make sure that the path start with the nextHop
+			if(ASnodeNumList.contains(tmpASnum) ){//&& tmpASnum!=ASnumSrc
 				path.len++;
 				path.pathNode.addFirst(tmpASnum);  //maybe need to check;
 			}

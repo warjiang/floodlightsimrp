@@ -217,6 +217,7 @@ public class EncodeData {
 	public static byte[] neighborSection2Byte(Neighbor neighborSection){
 		byte[] tmp;
 		byte[] data = new byte[48];
+		byte type;
 		
 		tmp = IPperfix.IPperfix2ByteArray(neighborSection.ASnodeSrc.IPperfix);
 		for(int j=0; j<4; j++)
@@ -251,7 +252,11 @@ public class EncodeData {
 		tmp = int2ByteArray(neighborSection.attribute.latency);
 		for(int j=0; j<4; j++)
 			data[40 + j] = tmp[j];
-		data[40] = (byte) (data[40]|neighborSection.type); 
+		if(neighborSection.type)
+			type = 0x00;
+		else
+			type = 0x40;
+		data[40] = (byte) (data[40]|type); 
 		tmp = int2ByteArray(neighborSection.attribute.bandwidth);
 		for(int j=0; j<4; j++)
 			data[44 + j] = tmp[j];

@@ -29,15 +29,20 @@ public class Main {
 		MultiPath CurMultiPath       = new MultiPath();
 		CurMultiPath.updatePath(myASnum, Main.NIB, ASnodeNumList, 0);
 		printPath(CurMultiPath.RIBFromlocal);
+		InterSocket.curRIB           = new HashMap<Integer,Map<Integer,Map<Integer,ASpath>>>();
+		InterSocket.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
+		printPath(InterSocket.curRIB.get(myASnum));
 		
 		int a = 0;
+		System.out.printf("haha");
 		
 	}
 	
 	public static void printPath(Map<Integer,Map<Integer,ASpath>> paths){
 		for(Map.Entry<Integer, Map<Integer,ASpath>> entryA: paths.entrySet())
 			for(Map.Entry<Integer,ASpath> entryB: entryA.getValue().entrySet()){
-				System.out.printf("%s: %s\n",entryB.getKey(),entryB.getValue().pathNode.toString());			
+				System.out.printf("%s, %s, %s: %s\n",
+						entryB.getKey(),entryB.getValue().bandwidth,entryB.getValue().delay,entryB.getValue().pathNode.toString());			
 		}
 	}
 	

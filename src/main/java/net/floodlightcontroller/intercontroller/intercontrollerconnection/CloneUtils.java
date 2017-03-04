@@ -49,12 +49,33 @@ public class CloneUtils {
 	
 	public static Map<Integer, ASpath> ASpathClone(Map<Integer, ASpath>RIBpath){
 		Map<Integer,ASpath> tmpRIBpath = new HashMap<Integer,ASpath>();
-		for(Map.Entry<Integer, ASpath> entry: RIBpath.entrySet()){
-			int tmpKey = entry.getKey();
-			ASpath tmpASpath = entry.getValue().clone();
-			tmpRIBpath.put(tmpKey, tmpASpath);	
-		}
+		for(Map.Entry<Integer, ASpath> entry: RIBpath.entrySet())
+			tmpRIBpath.put(entry.getKey(), entry.getValue().clone());	
 		return tmpRIBpath;
 	}
+
+	public static Map<Integer,Map<Integer,ASpath>> RIBlocalClone(Map<Integer,Map<Integer,ASpath>> RIBlocal){
+		Map<Integer,Map<Integer,ASpath>> tmpRIBlocal = new HashMap<Integer,Map<Integer,ASpath>>();
+		for(Map.Entry<Integer, Map<Integer, ASpath>>entryA: RIBlocal.entrySet())
+			tmpRIBlocal.put(entryA.getKey(), ASpathClone(entryA.getValue()));		
+		return tmpRIBlocal;
+	}
+	
+	/**
+	 * clone the RIBlocal without the local node
+	 * @param RIBlocal
+	 * @return
+	 */
+	public static Map<Integer,Map<Integer,ASpath>> RIBlocal2RIB(Map<Integer,Map<Integer,ASpath>> RIBlocal){
+		Map<Integer,Map<Integer,ASpath>> tmpRIBlocal = new HashMap<Integer,Map<Integer,ASpath>>();
+		for(Map.Entry<Integer, Map<Integer, ASpath>>entryA: RIBlocal.entrySet()){
+			Map<Integer,ASpath> tmpRIBpath = new HashMap<Integer,ASpath>();
+			for(Map.Entry<Integer, ASpath> entry: entryA.getValue().entrySet())
+				tmpRIBpath.put(entry.getKey(), entry.getValue().cloneBeginWithNextHop());	
+			tmpRIBlocal.put(entryA.getKey(), tmpRIBpath);
+		}
+		return tmpRIBlocal;
+	}
+
 }
 

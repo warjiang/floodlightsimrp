@@ -19,6 +19,7 @@ public  class IPperfix {
 	public InetAddress getIP(){
 		return this.IP;		
 	}
+	
 	public Integer getMask(){
 		return this.mask;
 	}
@@ -117,6 +118,13 @@ public  class IPperfix {
 		
 		return bIPMask;
 	}
+
+	//return ip/mask
+	public  String Iperfix2String(){ 
+		String res = null;
+		res = this.IP.getHostAddress() + "/" + String.valueOf(this.mask);
+		return res;
+	}
 	
 	public boolean subNet(IPperfix perfix){
 		//Todo 
@@ -142,4 +150,5 @@ public  class IPperfix {
 			return true;
 		return false;	
 	}
+
 }

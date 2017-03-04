@@ -11,9 +11,11 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -40,13 +42,16 @@ import net.floodlightcontroller.packet.TCP;
 import net.floodlightcontroller.routing.IRoutingDecision;
 import net.floodlightcontroller.routing.RoutingDecision;
 import net.floodlightcontroller.threadpool.IThreadPoolService;
+import net.floodlightcontroller.util.OFMessageDamper;
 
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFType;
+import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IpProtocol;
+import org.projectfloodlight.openflow.protocol.match.Match;
 import org.python.modules.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +63,7 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	 */
 	private static final long serialVersionUID = 1L;
 	private static Logger log=LoggerFactory.getLogger(InterSocket.class);
+	
 	//SIMRP parameters
 	public static int holdingTime = 180;
 	public static int SIMRPVersion = 1;
@@ -69,6 +75,10 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 
 	public Integer serverPort = 51118;
 	public Integer  SERSOCK_INTERVAL_MS = 600;
+	public static int controllerPort = 65535;
+	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 0 ; //if the flow idle for 5s, it will be deleted auto
+	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 0; //0 means the flow won't be delete if it's in use.
+	
 	public static int  confSizeMB  = 1024; //1G
 	public static int myASnum  = 0;
 	public static int MaxPathNum  = 8;
@@ -86,13 +96,14 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	public static boolean updateNIBFlagTotal;
 	public static boolean NIBwriteLock;
 	public static boolean updateNIBWriteLock;
+	public static boolean allTheClientStarted;
 	
 	public static HashSet<Integer> ASnodeNumList;   //ASnum
 	public static Map<Integer,ASnode> ASnodeList;  //<ASnum, ASnode>
 	
 	public static Map<Integer,Map<Integer,Map<Integer,ASpath>>> curRIB;  //<ASnumSrc,<ASnumDest,<pathKey, ASpath>>>
 	public static Map<Integer,LinkedList<ASpath>> updateRIB;  //<NextHop,HashSet<ASpath>>
-	public static boolean updateRIBWriteLock;
+	public static boolean updateRIBWriteLock; 
 	public static boolean RIBwriteLock;
 	public static boolean updateRIBFlagTotal;
 	public static Map<Integer, Boolean> updateFlagRIB;  //<ASnextHop, boolean> true if need send updateNIB message
@@ -113,6 +124,7 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	
 	protected Map<Integer,Map<Integer,Neighbor>> NIBinConfig;
 	public static final String MODULE_NAME = "InterSocket";
+	protected OFMessageDamper messageDamper;
 
 	@Override
 	public String getName() {
@@ -174,6 +186,7 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 		InterSocket.updateNIBFlagTotal = false;
 		InterSocket.updateNIBWriteLock = false;
         InterSocket.NIBwriteLock       = false;
+        InterSocket.allTheClientStarted= false;
 			
 		InterSocket.curRIB           = new HashMap<Integer,Map<Integer,Map<Integer,ASpath>>>();
 		InterSocket.updateRIB        = new HashMap<Integer,LinkedList<ASpath>>();
@@ -185,13 +198,17 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 		
 		InterSocket.mySockets        = new HashMap<Integer,Socket>();	
 		this.NIBinConfig             = new HashMap<Integer,Map<Integer,Neighbor>>();
-		this.clientSocketTasks       = new HashMap<Integer,SingletonTask>();		
+		this.clientSocketTasks       = new HashMap<Integer,SingletonTask>();	
+		messageDamper = new OFMessageDamper(10000,
+				EnumSet.of(OFType.FLOW_MOD),
+				250); //250ms
 	}
 
 	@Override
 	public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
 		try {
-			//InetAddress a = InterSocket.getIpAddress();
+			floodlightProviderService.addOFMessageListener(OFType.PACKET_IN, this); //start to listen for packetIn	
+			
 			FloodlightStartTime = System.currentTimeMillis();
 			ScheduledExecutorService ses = threadPoolService.getScheduledExecutor();
 			String myIPstr = getIpAddress().getHostAddress();	
@@ -206,32 +223,30 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 				this.myServerSocket = new ServerSocket(serverPort,0,getASIPperfixSrcFromNeighbors(myNeighbors));
 				this.serverSocketTask = new SingletonTask(ses, new serverSocketThread());
 				this.serverSocketTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
-			}
-			startClient();	
+			}		
+			
+			InterSocket.allTheClientStarted = true;
 			//need modify, add the path only if the socket is connected
 			this.NIBinConfig.put(myASnum, myNeighbors);
 			InterSocket.NIB = CloneUtils.NIBclone(this.NIBinConfig);	
-			InterSocket.updateNIBFlagTotal = true;
+			InterSocket.updateNIBFlagTotal = true; //it wont change anything at this time
+									
 			MultiPath CurMultiPath       = new MultiPath();
 			CurMultiPath.updatePath(myASnum, NIB, ASnodeNumList, 0);
-			
-			// for the first time , we will send totoal NIB, so it's no need send update
-/*			for(Map.Entry<Integer, Neighbor> entry: myNeighbors.entrySet())
-				for(int ASnum : ASnodeNumList){
-					if(ASnum == myASnum)
-						continue;
-					if(InterSocket.updateNIB.containsKey(ASnum))
-						InterSocket.updateNIB.get(ASnum).add(entry.getValue()); 
-					else{
-						HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
-						tmpHashSet.add(entry.getValue());
-						InterSocket.updateNIB.put(ASnum, tmpHashSet);
-					}
-					InterSocket.updateFlagNIB.put(ASnum, true);
-				}*/
-			
-			
-			floodlightProviderService.addOFMessageListener(OFType.PACKET_IN, this); //start to listen for packetIn					
+			InterSocket.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
+			Time.sleep(10);
+			Set<DatapathId> swDpIds = null;
+			DatapathId dpid = null;
+			swDpIds = switchService.getAllSwitchDpids();
+			Iterator<DatapathId> it = swDpIds.iterator();
+			while(it.hasNext()){
+				dpid = it.next();
+				IOFSwitch sw = switchService.getSwitch(dpid);
+				Routing.pushBestPath2Switch(InterSocket.curRIB, sw);
+			}
+			Time.sleep(5);
+			startClient();
+							
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -268,6 +283,7 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 					else{
 						//remove the client in the myNeighbors
 						myNeighbors.remove(entry.getValue().ASnodeDest.ASnum);
+						InterSocket.NIB.get(InterSocket.myASnum).remove(entry.getValue().ASnodeDest.ASnum);
 					}
 				}
 			} 
@@ -279,7 +295,12 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 			IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
 		switch (msg.getType()) {
 		case PACKET_IN:
-			return this.processPacketInMessage(sw, (OFPacketIn) msg, cntx);
+			try {
+				return this.processPacketInMessage(sw, (OFPacketIn) msg, cntx);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		default:
 			break;
 		}
@@ -289,34 +310,9 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	/*
 	 * handle the packetIn msg, if the dest is in this AS, return continue, else search for an InterAS path
 	 */
-	public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx){
-		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
-		ASpath path = null;
-		if(eth.getEtherType() == EthType.ARP){
-			 ARP arp = (ARP) eth.getPayload();
-			 IPv4Address srcIP  = arp.getSenderProtocolAddress();
-			 IPv4Address destIP = arp.getTargetProtocolAddress();
-			 path = Routing.getRoutingPath(srcIP,destIP);
-			 if(path != null){
-				 
-				 return Command.STOP; 
-			 }		 
-			 else
-				 return Command.CONTINUE;//it's NOT interDomain problem/ has no path
-				 
-		}
-		else if (eth.getEtherType() == EthType.IPv4) { /* shallow check for equality is okay for EthType */ 
-			IPv4 ip = (IPv4) eth.getPayload();
-			if (ip.getProtocol().equals(IpProtocol.TCP)) {
-				TCP tcp = (TCP) ip.getPayload();
-
-			}
-			if (ip.getProtocol().equals(IpProtocol.ICMP)) {
-				ICMP icmp = (ICMP) ip.getPayload();
-
-			}
-		}
-		
+	public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx) throws IOException{
+		if(Routing.findOFFlowByPacket(sw, null, cntx))
+			return Command.STOP;
 		return Command.CONTINUE;
 	}
 	
@@ -371,27 +367,23 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 		}
 	}
 
-	public static InetAddress getIpAddress() throws
-	      SocketException {
-	  // Before we connect somewhere, we cannot be sure about what we'd be bound to; however,
-	  // we only connect when the message where client ID is, is long constructed. Thus,
-	  // just use whichever IP address we can find.
+	//get the local IP address
+	public static InetAddress getIpAddress() throws SocketException {	
 		  Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
 		  while (interfaces.hasMoreElements()) {
-		    NetworkInterface current = interfaces.nextElement();
-		    if (!current.isUp() || current.isLoopback() || current.isVirtual()) continue;
-		    Enumeration<InetAddress> addresses = current.getInetAddresses();
-		    while (addresses.hasMoreElements()) {
-		      InetAddress addr = addresses.nextElement();
-		      if (addr.isLoopbackAddress()) continue;
-		     // if (condition.isAcceptableAddress(addr)) {
-		      if(addr.toString().length()<17)// only need ipv4
-		    	  return addr;
-		     // }
-		    }
-	  }
-	
-	  throw new SocketException("Can't get our ip address, interfaces are: " + interfaces);
+			  NetworkInterface current = interfaces.nextElement();
+			  if (!current.isUp() || current.isLoopback() || current.isVirtual()) 
+				  continue;
+			  Enumeration<InetAddress> addresses = current.getInetAddresses();
+			  while (addresses.hasMoreElements()) {
+				  InetAddress addr = addresses.nextElement();
+				  if (addr.isLoopbackAddress()) continue;
+				  // if (condition.isAcceptableAddress(addr)) {
+				  if(addr.toString().length()<17)// only need ipv4
+					 return addr;
+			  }
+		  }
+		  throw new SocketException("Can't get our ip address, interfaces are: " + interfaces);
 	}
 	
 	public int getASnumSrcFromNeighbors(Map<Integer, Neighbor> nodes){
@@ -446,7 +438,6 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 				ASnum = entry.getValue().ASnodeDest.ASnum;
 		return ASnum;
 	}
-
 
 }
 

@@ -18,15 +18,13 @@ public class Neighbor{
 	public DatapathId inSwitch; 
 	public SectionAttri attribute;
 	public int delay;  //delay = latency(ms) + 8000*confSizeMB/bandwidth (MB/Mbps)
-	public byte type = 0x00;  //0x00 add, 0x40 delete, 0x80 modify
+	public boolean type = true;  //true inuse, false deleted; 0x00 add, 0x40 delete, 0x80 modify
 	
 	public Neighbor(){
 		this.ASnodeDest = new ASnode();
 		this.ASnodeSrc  = new ASnode();
 		this.attribute  = new SectionAttri();
-		this.delay      = Integer.MAX_VALUE;
-	//	this.outPort = new OFPort();
-		
+		this.delay      = Integer.MAX_VALUE;	
 	}
 	
 	//maybe need check

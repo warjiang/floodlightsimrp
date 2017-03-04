@@ -118,7 +118,10 @@ public class ThreadServerSocket extends Thread{
 				}
 				
 				//send msg with total NIB 
-				if(helloFlag && (timeCur-timeFirstUpdateNIB >InterSocket.sendUpdateNIBFirstCheck)&& sendTotalNIB){
+				if(InterSocket.allTheClientStarted 
+						&& helloFlag 
+						&& (timeCur-timeFirstUpdateNIB >InterSocket.sendUpdateNIBFirstCheck)
+						&& sendTotalNIB){
 					Time.sleep(1);
 					timeFirstUpdateNIB = System.currentTimeMillis()/1000;
 					myMsg = EncodeData.creatUpdateNIB(InterSocket.NIB);
@@ -128,7 +131,9 @@ public class ThreadServerSocket extends Thread{
 				}
 				
 				//after hello,  do update the NIB
-				if(helloFlag && InterSocket.updateNIBFlagTotal && InterSocket.updateFlagNIB.containsKey(clientASnum)&&InterSocket.updateFlagNIB.get(clientASnum)){
+				if(helloFlag && InterSocket.updateNIBFlagTotal 
+						&& InterSocket.updateFlagNIB.containsKey(clientASnum)
+						&& InterSocket.updateFlagNIB.get(clientASnum)){
 					while(InterSocket.updateNIBWriteLock){
 						;
 					}
@@ -157,7 +162,9 @@ public class ThreadServerSocket extends Thread{
 				}
 				
 				//after hello,  do update the RIB
-				if(helloFlag && InterSocket.updateRIBFlagTotal && InterSocket.updateFlagRIB.containsKey(clientASnum)&& InterSocket.updateFlagRIB.get(clientASnum)){
+				if(helloFlag && InterSocket.updateRIBFlagTotal 
+						&& InterSocket.updateFlagRIB.containsKey(clientASnum)
+						&& InterSocket.updateFlagRIB.get(clientASnum)){
 					while(InterSocket.updateRIBWriteLock){
 						;
 					}

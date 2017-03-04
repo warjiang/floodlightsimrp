@@ -14,6 +14,7 @@ public class ASnode {
 		return this.IPperfix;
 	}
 	
+	
 	public Integer getASnum(){
 		return this.ASnum;
 	}

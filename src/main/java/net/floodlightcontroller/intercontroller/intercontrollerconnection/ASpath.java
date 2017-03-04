@@ -13,6 +13,7 @@ public class ASpath {
 	public int pathKey;
 	public byte type; //0x00 add or modify; 0x40 delete 
 	public boolean times; //if inuse or not;
+//	public long cookie; //use to xid the  
 	public LinkedList<Integer> pathNode;	
 	
 	public ASpath(){
@@ -40,6 +41,7 @@ public class ASpath {
 		res.delay     = this.delay;
 		res.pathKey   = this.pathKey;
 		res.type      = this.type;
+		
 		res.times     = true;
 		for(int i =0; i<this.pathNode.size(); i++)
 			res.pathNode.add(this.pathNode.get(i));	
@@ -69,6 +71,14 @@ public class ASpath {
 		return res;
 	}
 	
+	public int getNextHop(){
+		int nextHop = 0;
+		if(!this.pathNode.isEmpty())
+			nextHop = this.pathNode.getFirst();		
+		return nextHop;
+	}
+	
+
 	public boolean equals(ASpath path){
 		if( this.src==path.src &&
 				this.dest == path.dest &&
