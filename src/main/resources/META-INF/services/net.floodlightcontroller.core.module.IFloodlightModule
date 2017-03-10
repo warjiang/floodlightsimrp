@@ -28,5 +28,4 @@ net.floodlightcontroller.accesscontrollist.ACL
 net.floodlightcontroller.dhcpserver.DHCPServer
 net.floodlightcontroller.learningswitch.LearningSwitch
 net.floodlightcontroller.statistics.StatisticsCollector
-net.floodlightcontroller.intercontroller.intercontroller
-net.floodlightcontroller.intercontroller.intercontrollerconnection.InterSocket
+net.floodlightcontroller.intercontroller.InterSocket
