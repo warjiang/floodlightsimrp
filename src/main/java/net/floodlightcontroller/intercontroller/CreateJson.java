@@ -8,48 +8,93 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class CreateJson {
-	public static void createNIBJson() throws JsonGenerationException, JsonMappingException, IOException{
-		File file = new File("src/main/java/net/floodlightcontroller/intercontroller/JSON/NIB.json");
+	public static void createNIBJson(){
+		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"NIB.json";
+		File file = new File(fileName);
 		if(!file.exists())
-			file.createNewFile();
+			try {
+				file.createNewFile();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		ObjectMapper mapper = new ObjectMapper();  
-		while(InterSocket.NIBwriteLock ){
+		while(InterController.NIBWriteLock ){
 			;
 		}
-		InterSocket.NIBwriteLock = true; //lock NIB
-		mapper.writeValue(file, InterSocket.NIB);  	
-		InterSocket.NIBwriteLock = false; //lock NIB
+		InterController.NIBWriteLock = true; //lock NIB
+		try {
+			mapper.writeValue(file, InterController.NIB);
+		} catch (JsonGenerationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (JsonMappingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}  	
+		InterController.NIBWriteLock = false; //lock NIB
 		
 	}
 	
-	public static void createRIBJson() throws JsonGenerationException, JsonMappingException, IOException{
-		File file = new File("src/main/java/net/floodlightcontroller/intercontroller/JSON/RIB.json");
+	public static void createRIBJson(){
+		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"RIB.json";
+		File file = new File(fileName);
 		if(!file.exists())
-			file.createNewFile();
+			try {
+				file.createNewFile();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 	/*	else{
 			file.delete();
 			file.createNewFile();
 		}*/
 		ObjectMapper mapper = new ObjectMapper();  
-		while(InterSocket.RIBwriteLock ){
+		while(InterController.RIBWriteLock ){
 			;
 		}
-		InterSocket.RIBwriteLock = true; //lock RIB
-		mapper.writeValue(file, InterSocket.curRIB);  
-		InterSocket.RIBwriteLock = false; //unlock RIB
+		InterController.RIBWriteLock = true; //lock RIB
+		try {
+			mapper.writeValue(file, InterController.curRIB);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}  
+		InterController.RIBWriteLock = false; //unlock RIB
 	}
 	
-	public static void createPIBJson() throws JsonGenerationException, JsonMappingException, IOException{
-		File file = new File("src/main/java/net/floodlightcontroller/intercontroller/JSON/PIB.json");
+	public static void createPIBJson() {
+		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"PIB.json";
+		File file = new File(fileName);
 		if(!file.exists())
-			file.createNewFile();
+			try {
+				file.createNewFile();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		ObjectMapper mapper = new ObjectMapper();  
-		while(InterSocket.PIBwriteLock ){
+		while(InterController.PIBWriteLock ){
 			;
 		}
-		InterSocket.PIBwriteLock = true; //lock PIB
-		mapper.writeValue(file, InterSocket.PIB);  
-		InterSocket.PIBwriteLock = false; //unlock PIB			
+		InterController.PIBWriteLock = true; //lock PIB
+		try {
+			mapper.writeValue(file, InterController.PIB);
+		} catch (JsonGenerationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (JsonMappingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}  
+		InterController.PIBWriteLock = false; //unlock PIB			
 	}
 
 }

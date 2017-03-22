@@ -51,13 +51,13 @@ import com.fasterxml.jackson.databind.JsonMappingException;
  * @author xftony
  *
  */
-public class InterSocket implements IOFMessageListener, IFloodlightModule, 
+public class InterController implements IOFMessageListener, IFloodlightModule, 
 		Serializable, IFloodlightService{// extends ReadConfig { 
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	private static Logger log=LoggerFactory.getLogger(InterSocket.class);
+	private static Logger log=LoggerFactory.getLogger(InterController.class);
 	
 	//SIMRP parameters
 	public static int SIMRPVersion = 1;
@@ -76,21 +76,25 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	public static int clientReconnectTimes = 20;
 	public static int clientReconnectInterval = 3;
 	public static int serverPort = 51118;
+	public static int controllerOFport = 1;
+	
+	public static int doReadRetryTimes = 5;
 	
 	public int  SERSOCK_INTERVAL_MS = 600;
 
 	public static int myASnum  = 0;
+	public static String myIPstr;
 	
 	public static Map<Integer, Neighbor> myNeighbors = null; //<ASDestnum, Neighbor>
 	
 	public static HashSet<Integer>PIB;  //PIB <num, ASnum> //num:0() //strategy, forbidden AS
-	public static boolean PIBwriteLock;
+	public static boolean PIBWriteLock;
 	
 	public static Map<Integer,Map<Integer,Neighbor>> NIB; //<ASnumSrc,<ASnumDest,Neighbor>>	
 	public static Map<Integer,HashSet<Neighbor>> NIB2BeUpdate;     //store the new learned peers for each AS
 	public static Map<Integer, Boolean> updateFlagNIB;  //<ASnumDest, boolean> true if need send updateNIB message
 	public static boolean updateNIBFlagTotal;
-	public static boolean NIBwriteLock;
+	public static boolean NIBWriteLock;
 	public static boolean updateNIBWriteLock;
 	public static boolean allTheClientStarted;
 	
@@ -100,7 +104,7 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	public static Map<Integer,Map<Integer,Map<Integer,ASpath>>> curRIB;  //<ASnumSrc,<ASnumDest,<pathKey, ASpath>>>
 	public static Map<Integer,LinkedList<ASpath>> RIB2BeUpdate;  //<NextHop,HashSet<ASpath>>
 	public static boolean updateRIBWriteLock; 
-	public static boolean RIBwriteLock;
+	public static boolean RIBWriteLock;
 	public static boolean updateRIBFlagTotal;
 	public static Map<Integer, Boolean> updateFlagRIB;  //<ASnextHop, boolean> true if need send updateNIB message
 	
@@ -120,7 +124,7 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	protected SingletonTask startClientTask ;
 	
 	protected Map<Integer,Map<Integer,Neighbor>> NIBinConfig;
-	public static final String MODULE_NAME = "InterSocket";
+	public static final String MODULE_NAME = "InterController";
 	protected OFMessageDamper messageDamper;
 
 	@Override
@@ -172,28 +176,28 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 		floodlightProviderService    = context.getServiceImpl(IFloodlightProviderService.class);
 		switchService                = context.getServiceImpl(IOFSwitchService.class);
 	
-		InterSocket.PIB              = new HashSet<Integer>(); 
+		InterController.PIB              = new HashSet<Integer>(); 
 		
-		InterSocket.myNeighbors      = new HashMap<Integer, Neighbor>();
-		InterSocket.NIB              = new HashMap<Integer,Map<Integer,Neighbor>>();
-		InterSocket.NIB2BeUpdate     = new HashMap<Integer, HashSet<Neighbor>>();
-		InterSocket.updateFlagNIB    = new HashMap<Integer, Boolean>();
-		InterSocket.ASnodeNumList    = new HashSet<Integer>();
-		InterSocket.ASnodeList       = new HashMap<Integer,ASnode>();
-		InterSocket.updateNIBFlagTotal = false;
-		InterSocket.updateNIBWriteLock = false;
-        InterSocket.NIBwriteLock       = false;
-        InterSocket.allTheClientStarted= false;
+		InterController.myNeighbors      = new HashMap<Integer, Neighbor>();
+		InterController.NIB              = new HashMap<Integer,Map<Integer,Neighbor>>();
+		InterController.NIB2BeUpdate     = new HashMap<Integer, HashSet<Neighbor>>();
+		InterController.updateFlagNIB    = new HashMap<Integer, Boolean>();
+		InterController.ASnodeNumList    = new HashSet<Integer>();
+		InterController.ASnodeList       = new HashMap<Integer,ASnode>();
+		InterController.updateNIBFlagTotal = false;
+		InterController.updateNIBWriteLock = false;
+        InterController.NIBWriteLock       = false;
+        InterController.allTheClientStarted= false;
 			
-		InterSocket.curRIB           = new HashMap<Integer,Map<Integer,Map<Integer,ASpath>>>();
-		InterSocket.RIB2BeUpdate     = new HashMap<Integer,LinkedList<ASpath>>();
-		InterSocket.updateFlagRIB    = new HashMap<Integer, Boolean>();	
-		InterSocket.updateRIBFlagTotal = false;
-		InterSocket.updateRIBWriteLock = false;
-		InterSocket.RIBwriteLock       = false;
+		InterController.curRIB           = new HashMap<Integer,Map<Integer,Map<Integer,ASpath>>>();
+		InterController.RIB2BeUpdate     = new HashMap<Integer,LinkedList<ASpath>>();
+		InterController.updateFlagRIB    = new HashMap<Integer, Boolean>();	
+		InterController.updateRIBFlagTotal = false;
+		InterController.updateRIBWriteLock = false;
+		InterController.RIBWriteLock       = false;
 		
 		
-		InterSocket.mySockets        = new HashMap<Integer,Socket>();	
+		InterController.mySockets        = new HashMap<Integer,Socket>();	
 		this.NIBinConfig             = new HashMap<Integer,Map<Integer,Neighbor>>();
 		this.clientSocketTasks       = new HashMap<Integer,SingletonTask>();	
 		messageDamper                = new OFMessageDamper(10000,EnumSet.of(OFType.FLOW_MOD),250); //250ms
@@ -203,84 +207,114 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
 		try {
 			floodlightProviderService.addOFMessageListener(OFType.PACKET_IN, this); //start to listen for packetIn				
-			String myIPstr = getIpAddress().getHostAddress();	
+			myIPstr = getIpAddress().getHostAddress();	
 			String configASAddress = "src/main/java/net/floodlightcontroller/" 
 					+"intercontroller/ASconfig/ASconfigFor" + myIPstr +".conf";
-			InterSocket.myNeighbors = ReadConfig.readNeighborFromFile(configASAddress);
+			InterController.myNeighbors = ReadConfig.readNeighborFromFile(configASAddress);
 			myASnum = getASnumSrcFromNeighbors(myNeighbors);
-			InterSocket.ASnodeNumList    = getAllASnumFromNeighbors(myNeighbors);
-			InterSocket.ASnodeList       = getAllASnodeFromNeighbors(myNeighbors);
+			InterController.ASnodeNumList    = getAllASnumFromNeighbors(myNeighbors);
+			InterController.ASnodeList       = getAllASnodeFromNeighbors(myNeighbors);
 			
 			String SIMRPconfig     = "src/main/java/net/floodlightcontroller/" 
 					+"intercontroller/ASconfig/SIMRP.conf";
 			ReadConfig.readSIMRPconfigFile(SIMRPconfig);
 			
 			ScheduledExecutorService ses = threadPoolService.getScheduledExecutor();
-			if(InterSocket.myNeighbors!= null) {
+			if(InterController.myNeighbors!= null) {
 				this.myServerSocket = new ServerSocket(serverPort,0,getASIPperfixSrcFromNeighbors(myNeighbors));
 				this.serverSocketTask = new SingletonTask(ses, new serverSocketThread());
 				this.serverSocketTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
 			}		
 			
-			InterSocket.allTheClientStarted = true;
+			InterController.allTheClientStarted = true;
+			
 			//need modify, add the path only if the socket is connected
 			this.NIBinConfig.put(myASnum, myNeighbors);
-			InterSocket.NIB = CloneUtils.NIBclone(this.NIBinConfig);	
-			InterSocket.updateNIBFlagTotal = true; //it wont change anything at this time
+			InterController.NIB = CloneUtils.NIBclone(this.NIBinConfig);	
+			HandleSIMRP.printNIB(InterController.NIB);	
+			InterController.updateNIBFlagTotal = true; //it wont change anything at this time
 									
-			MultiPath CurMultiPath       = new MultiPath();
+			MultiPath CurMultiPath         = new MultiPath();
 			CurMultiPath.updatePath(myASnum, NIB, ASnodeNumList, 0);
 			if(!CurMultiPath.RIBFromlocal.isEmpty()){
-				InterSocket.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
+				InterController.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
 				pushOF02Switch();
-			}
+			} 
 			
-			startClient();
+			//InterController.NIB.put(myASnum, new HashMap<Integer, Neighbor>());
+			//pushOF02Switch(); // push the controller flow
+			startClientTask = new SingletonTask(ses, new startClientThread());
+			startClientTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
 			
 			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			System.out.printf("%s:InterDomain started!!!\n",df.format(new Date()));				
+			System.out.printf("%s:InterDomain started!!!\nmyASnum=%s,IP=%s\n",df.format(new Date()), myASnum,myIPstr);				
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}		
 	}
 
-	public void startClient() throws JsonGenerationException, JsonMappingException, IOException{
-		if(myNeighbors!=null) {
-			ScheduledExecutorService ses = threadPoolService.getScheduledExecutor();
-			//start clientSocket if ASnumSrc <ASnumDest, smaller ASnum become client.
-			for( Map.Entry<Integer, Neighbor> entry: myNeighbors.entrySet()){
-				if(entry.getValue().ASnodeDest.ASnum > entry.getValue().ASnodeSrc.ASnum && 
-						!mySockets.containsKey(entry.getValue().ASnodeDest.ASnum)){
-					Socket clientSocket = null;
-					int reconnectTime = 0;
-					while(clientSocket == null && reconnectTime<clientReconnectTimes){
-						try {
-							Time.sleep(clientReconnectInterval);
-							clientSocket = new Socket(entry.getValue().ASnodeDest.IPperfix.IP, serverPort);	
-						//	clientSocket.setSoTimeout(10000); //10s reconnect
-						//	clientSocket.
-						} catch (IOException e) {
-							reconnectTime++;
-							log.info("client{} connect failed {} times", entry.getValue().ASnodeDest.IPperfix.IP, reconnectTime);
-							continue;
-						}
-					}
-					if(clientSocket !=null){
-						mySockets.put(entry.getValue().ASnodeDest.ASnum, clientSocket);
-						clientSocketTask = new SingletonTask(ses, new clientSocketThread(clientSocket));	
-						clientSocketTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
-						clientSocketTasks.put(entry.getValue().ASnodeDest.ASnum, clientSocketTask);
-					}
-					else{
-						//remove the client in the myNeighbors
-						myNeighbors.remove(entry.getValue().ASnodeDest.ASnum);
-						if(InterSocket.NIB.get(myASnum).containsKey(entry.getValue().ASnodeDest.ASnum))
-							updateNIB.updateNIBMoveAS(entry.getValue().ASnodeDest.ASnum);
+	public boolean startClient() throws JsonGenerationException, JsonMappingException, IOException{
+		boolean ifAllClientStarted = true;
+		if(myNeighbors==null) 
+			return ifAllClientStarted;
+		ScheduledExecutorService ses = threadPoolService.getScheduledExecutor();
+		//start clientSocket if ASnumSrc <ASnumDest, smaller ASnum become client.
+		for( Map.Entry<Integer, Neighbor> entry: myNeighbors.entrySet()){
+			if(entry.getValue().ASnodeDest.ASnum < entry.getValue().ASnodeSrc.ASnum){
+				if(InterController.NIB.containsKey(myASnum) && !InterController.NIB.get(myASnum).containsKey(entry.getValue().ASnodeDest.ASnum)){
+					if(updateNIB.updateNIBAddNeighbor(entry.getValue().clone())){
+						CreateJson.createNIBJson();
+						if(updateRIB.updateRIBFormNIB())
+							CreateJson.createRIBJson();
 					}
 				}
-			} 
-		}
+			}
+			else if(entry.getValue().ASnodeDest.ASnum > entry.getValue().ASnodeSrc.ASnum && 
+					!mySockets.containsKey(entry.getValue().ASnodeDest.ASnum)){
+				if(updateNIB.updateNIBAddNeighbor(entry.getValue().clone())){
+					CreateJson.createNIBJson();
+					if(updateRIB.updateRIBFormNIB())
+						CreateJson.createRIBJson();
+				}
+				Socket clientSocket = null;
+				int reconnectTime = 1;
+				while(clientSocket == null && reconnectTime<clientReconnectTimes){					
+					try {		
+						log.info("try to connect client{} at {} time", entry.getValue().ASnodeDest.IPperfix.IP, reconnectTime);
+						clientSocket = new Socket(entry.getValue().ASnodeDest.IPperfix.IP, serverPort);	
+						clientSocket.setSoTimeout(3000); //10s reconnect
+						Time.sleep(clientReconnectInterval);
+					//	clientSocket.
+					} catch (IOException e) {
+						log.info("client{} connect failed {} times", entry.getValue().ASnodeDest.IPperfix.IP, reconnectTime);
+						reconnectTime++;
+						continue;
+					}
+				}
+				if(clientSocket !=null){
+					mySockets.put(entry.getValue().ASnodeDest.ASnum, clientSocket);
+					
+					this.clientSocketTask = new SingletonTask(ses, new clientSocketThread(clientSocket));	
+					this.clientSocketTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
+					this.clientSocketTasks.put(entry.getValue().ASnodeDest.ASnum, clientSocketTask);
+				}
+				else {
+					ifAllClientStarted = false;
+				//the AS maybe broken, should be removed, but here we give it chance to retry, so do not move it from myNeighbor
+				//	myNeighbors.remove(entry.getValue().ASnodeDest.ASnum);
+					if(updateNIB.updateNIBDeleteNeighbor(entry.getValue())){
+						CreateJson.createNIBJson();
+						if(updateRIB.updateRIBFormNIB())
+							CreateJson.createRIBJson();
+						}
+				}
+			}
+			else if(entry.getValue().ASnodeDest.ASnum == entry.getValue().ASnodeSrc.ASnum )
+				System.out.printf("Error Same ASnum error!!!, the ASnum is %s", entry.getValue().ASnodeSrc.ASnum);
+				
+		} 
+		return ifAllClientStarted;
 	}
 	
 	@Override
@@ -337,9 +371,10 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	//start the client,
 	public class startClientThread implements Runnable{
 		public void run(){
-			while(true){
+			boolean ifAllClientStarted = false;
+			while(!ifAllClientStarted){
 				try {
-					startClient();
+					ifAllClientStarted = startClient();
 				} catch (JsonGenerationException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -385,10 +420,10 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 	 * puah the OF0, the default flow, to the Switch
 	 * @throws IOException
 	 */
-	public void pushOF02Switch() throws IOException{
+	public static void pushOF02Switch() throws IOException{
 		//need to improve
 		//dpid should be the same in the NIB, but I do not want to configure them one by one.== so send to all the sw
-		//if you configure it in the configASAddress, the Neighbor.outSwitch is the right dpid here.
+		//if you configure it in the configASAddress, the Neighbor.outSwitch is the fit dpid here.
 		Set<DatapathId> swDpIds = null;
 		DatapathId dpid = null; 
 		swDpIds = switchService.getAllSwitchDpids();
@@ -401,7 +436,8 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 		while(it.hasNext()){
 			dpid = it.next();
 			IOFSwitch sw = switchService.getSwitch(dpid);
-			Routing.pushBestPath2Switch(InterSocket.curRIB.get(myASnum), sw);
+			Routing.pushRoute(sw, null, null, (byte)0x10); 
+			//Routing.pushBestPath2Switch(InterController.curRIB.get(myASnum), sw);
 		}
 	}
 	
@@ -454,7 +490,7 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 				flag = false;
 				tmp.add(entry.getValue().getASnumSrc());
 			}
-			if(!InterSocket.PIB.contains(entry.getValue().getASnumDest()))
+			if(!InterController.PIB.contains(entry.getValue().getASnumDest()))
 				tmp.add(entry.getValue().getASnumDest());
 		}
 		return tmp;
@@ -476,6 +512,23 @@ public class InterSocket implements IOFMessageListener, IFloodlightModule,
 			if(IP.equals(entry.getValue().ASnodeDest.IPperfix.IP))
 				ASnum = entry.getValue().ASnodeDest.ASnum;
 		return ASnum;
+	}
+	
+	public static void pushSinglePath2Switch(ASpath path){
+		Set<DatapathId> swDpIds = null;
+		DatapathId dpid = null; 
+		swDpIds = InterController.switchService.getAllSwitchDpids();
+		Iterator<DatapathId> it = swDpIds.iterator();
+		while(it.hasNext()){
+			dpid = it.next();
+			IOFSwitch sw = InterController.switchService.getSwitch(dpid);
+			try {
+				Routing.pushPath2Switch(path, sw);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 	}
 
 }

@@ -27,22 +27,22 @@ public class Main {
 		int myASnum = 60001;
 		
 		
-		InterSocket.NIB = ReadConfig.readNIBFromFile(configAddress);	
+		InterController.NIB = ReadConfig.readNIBFromFile(configAddress);	
 		
 		
 	//	Map<Integer, Neighbor> myNeighbors = Main.NIB.get(60001);
-		ASnodeNumList    = getAllASnumFromNIB(InterSocket.NIB);
+		ASnodeNumList    = getAllASnumFromNIB(InterController.NIB);
 		
 		MultiPath CurMultiPath       = new MultiPath();
-		CurMultiPath.updatePath(myASnum, InterSocket.NIB, ASnodeNumList, 0);
+		CurMultiPath.updatePath(myASnum, InterController.NIB, ASnodeNumList, 0);
 		printPath(CurMultiPath.RIBFromlocal);
-		InterSocket.curRIB           = new HashMap<Integer,Map<Integer,Map<Integer,ASpath>>>();
-		InterSocket.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
+		InterController.curRIB           = new HashMap<Integer,Map<Integer,Map<Integer,ASpath>>>();
+		InterController.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
 		CreateJson.createNIBJson();
 		CreateJson.createRIBJson();
 		CreateJson.createPIBJson();
 		
-		printPath(InterSocket.curRIB.get(myASnum));
+		printPath(InterController.curRIB.get(myASnum));
 		System.out.printf("haha");
 		
 	}

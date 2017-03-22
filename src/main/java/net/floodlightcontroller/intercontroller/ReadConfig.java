@@ -80,7 +80,7 @@ public class ReadConfig {
 		File file = new File(fileName);	
 		String[] tempStrSplit;
 		BufferedReader reader = null;
-	//	InetAddress myIPstr = InterSocket.getIpAddress();
+	//	InetAddress myIPstr = InterController.getIpAddress();
 				
 		try{
 			reader = new BufferedReader(new FileReader(file));
@@ -139,8 +139,8 @@ public class ReadConfig {
 					if(tmpStrSplitA[0]=="PIBNo"){
 						tmpStrSplitB = tmpStrSplitA[1].split(" ");
 						for(int i=0; i<tmpStrSplitB.length; i++){
-							if(Integer.parseInt(tmpStrSplitA[i])!=InterSocket.myASnum)
-								InterSocket.PIB.add(Integer.parseInt(tmpStrSplitA[i]));
+							if(Integer.parseInt(tmpStrSplitA[i])!=InterController.myASnum)
+								InterController.PIB.add(Integer.parseInt(tmpStrSplitA[i]));
 							else
 								System.out.printf("!!!!%s is local AS, can not be banned", Integer.parseInt(tmpStrSplitA[i]));
 						}
@@ -159,21 +159,22 @@ public class ReadConfig {
 				}catch(IOException e1){}
 		}
 		//here can add some other conditions
-		if(conf.containsKey("SIMRPVersion")) InterSocket.SIMRPVersion = conf.get("SIMRPVersion");
-		if(conf.containsKey("holdingTime")) InterSocket.holdingTime = conf.get("holdingTime");
-		if(conf.containsKey("keepaliveTime")) InterSocket.keepaliveTime = conf.get("keepaliveTime");
-		if(conf.containsKey("sendHelloDuration")) InterSocket.sendHelloDuration = conf.get("sendHelloDuration");
-		if(conf.containsKey("sendUpdateNIBFirstCheck")) InterSocket.sendUpdateNIBFirstCheck = conf.get("sendUpdateNIBFirstCheck");
-		if(conf.containsKey("confSizeMB")) InterSocket.confSizeMB = conf.get("confSizeMB");
-		if(conf.containsKey("maxPathNum")) InterSocket.maxPathNum = conf.get("maxPathNum");
-		if(conf.containsKey("minBandwidth")) InterSocket.minBandwidth = conf.get("minBandwidth");
-		if(conf.containsKey("maxLatency")) InterSocket.maxLatency = conf.get("maxLatency");
-		if(conf.containsKey("FLOWMOD_DEFAULT_IDLE_TIMEOUT")) InterSocket.FLOWMOD_DEFAULT_IDLE_TIMEOUT = conf.get("FLOWMOD_DEFAULT_IDLE_TIMEOUT");
-		if(conf.containsKey("FLOWMOD_DEFAULT_HARD_TIMEOUT")) InterSocket.FLOWMOD_DEFAULT_HARD_TIMEOUT = conf.get("FLOWMOD_DEFAULT_HARD_TIMEOUT");
-		if(conf.containsKey("clientReconnectTimes")) InterSocket.clientReconnectTimes = conf.get("clientReconnectTimes");
-		if(conf.containsKey("clientReconnectInterval")) InterSocket.clientReconnectInterval = conf.get("clientReconnectInterval");
-		if(conf.containsKey("serverPort")) InterSocket.serverPort = conf.get("serverPort");
-		if(conf.containsKey("PIBNo")) InterSocket.PIB.add(conf.get("PIBNo"));
+		if(conf.containsKey("SIMRPVersion")) InterController.SIMRPVersion = conf.get("SIMRPVersion");
+		if(conf.containsKey("holdingTime")) InterController.holdingTime = conf.get("holdingTime");
+		if(conf.containsKey("keepaliveTime")) InterController.keepaliveTime = conf.get("keepaliveTime");
+		if(conf.containsKey("sendHelloDuration")) InterController.sendHelloDuration = conf.get("sendHelloDuration");
+		if(conf.containsKey("sendUpdateNIBFirstCheck")) InterController.sendUpdateNIBFirstCheck = conf.get("sendUpdateNIBFirstCheck");
+		if(conf.containsKey("confSizeMB")) InterController.confSizeMB = conf.get("confSizeMB");
+		if(conf.containsKey("maxPathNum")) InterController.maxPathNum = conf.get("maxPathNum");
+		if(conf.containsKey("minBandwidth")) InterController.minBandwidth = conf.get("minBandwidth");
+		if(conf.containsKey("maxLatency")) InterController.maxLatency = conf.get("maxLatency");
+		if(conf.containsKey("FLOWMOD_DEFAULT_IDLE_TIMEOUT")) InterController.FLOWMOD_DEFAULT_IDLE_TIMEOUT = conf.get("FLOWMOD_DEFAULT_IDLE_TIMEOUT");
+		if(conf.containsKey("FLOWMOD_DEFAULT_HARD_TIMEOUT")) InterController.FLOWMOD_DEFAULT_HARD_TIMEOUT = conf.get("FLOWMOD_DEFAULT_HARD_TIMEOUT");
+		if(conf.containsKey("clientReconnectTimes")) InterController.clientReconnectTimes = conf.get("clientReconnectTimes");
+		if(conf.containsKey("clientReconnectInterval")) InterController.clientReconnectInterval = conf.get("clientReconnectInterval");
+		if(conf.containsKey("serverPort")) InterController.serverPort = conf.get("serverPort");
+		if(conf.containsKey("PIBNo")) InterController.PIB.add(conf.get("PIBNo"));
+		if(conf.containsKey("controllerOFport")) InterController.controllerOFport = conf.get("controllerOFport");
 		return true;
 	}
 

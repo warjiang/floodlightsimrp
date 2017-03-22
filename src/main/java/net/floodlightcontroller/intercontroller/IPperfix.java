@@ -11,7 +11,7 @@ public  class IPperfix {
 	int ipPerfixInt;
 	
 	public IPperfix(){
-	//	this.IP = new InetAddress();
+	//	this.IP = InetAddress.getAllByName(0);
 		this.mask = 0;
 		this.ipPerfixInt = 0;
 	}
@@ -28,7 +28,7 @@ public  class IPperfix {
 		IPperfix res = new IPperfix();
 		res.IP   = this.IP;
 		res.mask = this.mask;
-		if(this.ipPerfixInt == 0)
+		if(this.ipPerfixInt == 0 && this.IP!=null)
 			res.ipPerfixInt = IP2perfix(this.IP.toString(), this.mask);
 		else
 			res.ipPerfixInt = this.ipPerfixInt;
@@ -89,6 +89,8 @@ public  class IPperfix {
 	 * @return ip&mask
 	 */
 	public static int IP2perfix(IPperfix perfix){
+		if(perfix.IP==null)
+			return 0;
 		String ipAddr = perfix.IP.toString();
 		if(ipAddr.contains("/"))
 			ipAddr = ipAddr.split("/")[1]; 
@@ -137,7 +139,8 @@ public  class IPperfix {
 	 * @return true if they strictly equal with each other(ip=ip mask=mask)
 	 */
 	public boolean equals(IPperfix perfix){
-		if(this.IP.equals(perfix.IP) && this.mask.equals(perfix.mask))
+		if(this.IP!=null && perfix.IP!=null 
+				&& this.IP.equals(perfix.IP) && this.mask.equals(perfix.mask))
 			return true;
 		return false;	
 	}

@@ -27,8 +27,11 @@ public class CloneUtils {
 		}	
 		return clonedObj;
 	}
+	
 	public static Map<Integer,Neighbor> NeighborNodesClone(Map<Integer, Neighbor>NeighborNodes){
 		Map<Integer,Neighbor> NewNeighborNodes = new HashMap<Integer,Neighbor>();
+		if(NeighborNodes.isEmpty())
+			return NewNeighborNodes;
 		for(Map.Entry<Integer, Neighbor> entry: NeighborNodes.entrySet()){
 			int tmpKey = entry.getKey();
 			Neighbor tmpNeighbor = entry.getValue().clone();
@@ -53,6 +56,13 @@ public class CloneUtils {
 			tmpRIBpath.put(entry.getKey(), entry.getValue().clone());	
 		return tmpRIBpath;
 	}
+	
+	public static Map<Integer, ASpath> ASpathCloneWithNextHop(Map<Integer, ASpath>RIBpath){
+		Map<Integer,ASpath> tmpRIBpath = new HashMap<Integer,ASpath>();
+		for(Map.Entry<Integer, ASpath> entry: RIBpath.entrySet())
+			tmpRIBpath.put(entry.getKey(), entry.getValue().cloneBeginWithNextHop());	
+		return tmpRIBpath;
+	}
 
 	public static Map<Integer,Map<Integer,ASpath>> RIBlocalClone(Map<Integer,Map<Integer,ASpath>> RIBlocal){
 		Map<Integer,Map<Integer,ASpath>> tmpRIBlocal = new HashMap<Integer,Map<Integer,ASpath>>();
@@ -62,7 +72,7 @@ public class CloneUtils {
 	}
 	
 	/**
-	 * clone the RIBlocal without the local node
+	 * clone the RIBlocal without the local node, the path without the first node(myASnum)
 	 * @param RIBlocal
 	 * @return
 	 */

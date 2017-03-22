@@ -15,10 +15,12 @@ public class EncodeData {
 	 * @return byte[0]->byte[3]  high->low
 	 */
 	public static byte[] int2ByteArray(int x){
-		int byteNum = (40-Integer.numberOfLeadingZeros(x<0?~x:x))/8;
+	//	int byteNum = (40-Integer.numberOfLeadingZeros(x<0?~x:x))/8;
 		byte[] bX = new byte[4];
-		for(int i=0;i<byteNum;i++)
-			bX[3-i] = (byte)(x>>>(i*8));
+		bX[0] = (byte) ((x>>24) & 0xFF);  
+		bX[1] = (byte) ((x>>16)& 0xFF);  
+		bX[2] = (byte) ((x>>8)&0xFF);    
+		bX[3] = (byte) (x & 0xFF); 
 		return bX;			
 	}
 	/**
@@ -61,6 +63,7 @@ public class EncodeData {
 		return int2ByteArray(xid);
 	}
 	
+	
 	public static byte[] checkSum(byte[] data, int startByte){ //overflow is ignored
 		byte[] sum = new byte[2]; 
 		int len = data.length - 10; //(the fist 8byte in head, and the 2byte checksum)
@@ -87,7 +90,7 @@ public class EncodeData {
 		//byte[] data = new byte[len];
 		if(data==null) //head is added after the message is created
 			return null;
-		data[0] = 0x00;
+		data[0] = (byte) 0xff;
 		data[1] = 0x01;    //protocol is SIMRP
 		data[2] = type[0]; //message type
 		data[3] = type[1];
@@ -97,16 +100,17 @@ public class EncodeData {
 	}
 
 	public static byte[] NodeList2ByteArray(LinkedList<Integer> pathNode){
-		int len = 2*(pathNode.size()-1);
-		byte[] res = new byte[len];
+		int len = pathNode.size();
+		byte[] res = new byte[len*2];
 		byte[] tmp;
 		for(int i=0; i <len; i++){
 			tmp = int2ByteArray(pathNode.get(i));
 			for(int j=0; j<2; j++)
-				res[2*i + j] = tmp[j+2];
+				res[2*i + j] = tmp[j+2]; // get the low byte
 		}
 		return res;
 	}
+	
 	
 	/**
 	 * hello  typeInHead->0x0001
@@ -171,6 +175,8 @@ public class EncodeData {
 			hello[22+i] = tmp[i];
 		return hello;		
 	}
+	
+	
 	/**
 	 * keepalive typeInHead -> 0x0002
 	 * ************************************
@@ -218,7 +224,25 @@ public class EncodeData {
 		return keepalive;
 	}
 	
-	//len = 48
+
+	/** 
+	 * turn the neighbor to byte
+	 * length = 48
+	 * ***************************
+     *          SrcASIP         4
+     *          outPort        4*1
+	 *          outSwitchMAC   4*2
+	 *     srcASnum|srcIPmask   4
+	 *    destASnum|destIPmask  4
+	 *          DestASIP        4
+	 *          inPort          4
+	 *          inSwitchMAC    4*2
+	 * type|     latency        4
+	 * 			bandwidth       4
+	 * @param neighborSection
+	 * @return
+	 * @author xftony
+	 */
 	public static byte[] neighborSection2Byte(Neighbor neighborSection){
 		byte[] tmp;
 		byte[] data = new byte[48];
@@ -246,7 +270,7 @@ public class EncodeData {
 		for(int j=0; j<4; j++)
 			data[24 + j] = tmp[j];
 		for(int j=0; j<2; j++)  //mask Dest
-			data[18+j] = tmp[4+j];
+			data[22+j] = tmp[4+j];
 		tmp = int2ByteArray(neighborSection.inPort.getPortNumber());
 		for(int j=0; j<4; j++)
 			data[28 + j] = tmp[j];		
@@ -270,27 +294,29 @@ public class EncodeData {
 
 	
 	/**
-	 * update  typeInHead->0x0003
-	 * 4*3 + (4*1 + len*48) + 2 + 2
+	 * updateNIB  typeInHead->0x0003
+	 * length = 4*3 + (4*1 + len*48) + 2 + 2
 	 * *************************
 	 *          head           4*3
 	 *          ListLength     4*1 
-	 *          ASnodeSrc      4+4 //ASnum, IPperfix(IP )
-     *          outPort        2*1
+	 *          SrcASIP         4
+     *          outPort        4*1
 	 *          outSwitchMAC   4*2
-	 *          mask           2+2  mask
-	 *          ASnodeDest     2+4+2
-	 *          inPort         2*1
+	 *     srcASnum|srcIPmask   4
+	 *    destASnum|destIPmask  4
+	 *          DestASIP        4
+	 *          inPort          4
 	 *          inSwitchMAC    4*2
-	 *          TLV            4*2  (latency + bandwidth)
-	 *          NULL           2
-	 *          checkSum       2 
+	 * type|     latency        4
+	 * 			bandwidth       4
+	 *         NULL|checkSum    4 
+	 *   
 	 * @param listLen
 	 * @param neighborSection
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatUpdate(int listLen, Neighbor[] neighborSections){
+	public static byte[] creatUpdateNIB(int listLen, Neighbor[] neighborSections){
 		int len = 4*3 + 4*1 + listLen*48 + 4;
 		byte[] update = new byte[len];
 		byte[] tmp;
@@ -322,26 +348,29 @@ public class EncodeData {
 
 
 	/**
-	 * update  typeInHead->0x0003
+	 * updateNIB  typeInHead->0x0003
 	 * 4*3 + (4*1 + len*48) + 2 + 2
 	 * *************************
 	 *          head           4*3
 	 *          ListLength     4*1 
-	 *          ASnodeSrc      2+4+2 //ASnum, IPperfix(IP + mask)
-     *          outPort        2*1
+	 *          SrcASIP         4
+     *          outPort        4*1
 	 *          outSwitchMAC   4*2
-	 *          ASnodeDest     2+4+2
-	 *          inPort         2*1
+	 *     srcASnum|srcIPmask   4
+	 *    destASnum|destIPmask  4
+	 *          DestASIP        4
+	 *          inPort          4
 	 *          inSwitchMAC    4*2
-	 *          TLV            4*2  (latency + bandwidth)
-	 *          NULL           2
-	 *          checkSum       2 
+	 * type|     latency        4
+	 * 			bandwidth       4
+	 *         NULL|checkSum    4 
+	 *         
 	 * @param listLen
 	 * @param neighborSection
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatUpdate(Neighbor neighborSection){
+	public static byte[] creatUpdateNIB(Neighbor neighborSection){
 		int len = 4*3 + 4*1 + 48 + 4;
 		byte[] update = new byte[len];
 		byte[] tmp;
@@ -370,7 +399,29 @@ public class EncodeData {
 	}
 
 	
-
+	/**
+	 * updateNIB  typeInHead->0x0003
+	 * 4*3 + (4*1 + len*48) + 2 + 2
+	 * *************************
+	 *          head           4*3
+	 *          ListLength     4*1 
+	 *          SrcASIP         4
+     *          outPort        4*1
+	 *          outSwitchMAC   4*2
+	 *     srcASnum|srcIPmask   4
+	 *    destASnum|destIPmask  4
+	 *          DestASIP        4
+	 *          inPort          4
+	 *          inSwitchMAC    4*2
+	 * type|     latency        4
+	 * 			bandwidth       4
+	 *         NULL|checkSum    4 
+	 *         
+	 * @param listLen
+	 * @param neighborSection
+	 * @return
+	 * @author xftony
+	 */
 	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
 		int listLen = 0;
 		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
@@ -408,8 +459,10 @@ public class EncodeData {
 			update[len-2+i] = tmp[i];
 		return update;
 	}
+
 	
 	/**
+	 * updateRIB typeInHead->0x0004
 	 * creat updateRIB msg by the linkedList
 	 *              head               12
 	 *              length             4
@@ -427,7 +480,9 @@ public class EncodeData {
 		for(int i=0; i< pathNum; i++)
 			nodeNum += ASpaths.get(i).pathNode.size();
 	
-		int len = 12 + 4 + pathNum*8 + nodeNum*2 + 4;//shangwei xiugai 
+		int len = 12 + 4 + pathNum*8 + nodeNum*2 + 4;
+		if(len==32)
+			len+=4;
 		byte[] updateRIB = new byte[len];
 		byte[] tmp;
 		
@@ -444,14 +499,14 @@ public class EncodeData {
 		
 		tmp = int2ByteArray(pathNum);
 		for(int i =0; i<4; i++)
-			updateRIB[8+i] = tmp[i];
+			updateRIB[12+i] = tmp[i];
 		
 		int index = 16;
 		for(int j=0; j<pathNum; j++){
 			ASpath tmpASpath = ASpaths.get(j);
-			if(tmpASpath.src==tmpASpath.dest||tmpASpath.pathNode.size()<=1){
-				continue;
-			}
+		//	if(tmpASpath.src==tmpASpath.dest||tmpASpath.pathNode.size()<=1){
+		//		continue;
+		//	}
 			tmp = int2ByteArray(tmpASpath.pathKey);
 			for(int i =0; i<2; i++)  // get 2 low byte
 				updateRIB[index+i] = tmp[i+2];	
@@ -465,6 +520,7 @@ public class EncodeData {
 			tmp = int2ByteArray(tmpASpath.dest);  //ASnumDest
 			for(int i =0; i<2; i++)
 				updateRIB[index+6+i] = tmp[i+2];	
+			
 			tmp = NodeList2ByteArray(tmpASpath.pathNode);
 			for(int i =0; i<tmpASpath.pathNode.size()*2; i++)  
 				updateRIB[index+8+i] = tmp[i];	
@@ -476,6 +532,44 @@ public class EncodeData {
 			updateRIB[len-2+i] = tmp[i];
 		
 		return updateRIB;
+	}
+	
+	
+	/**
+	 * notification typeInHead->0x0005
+	 *                   head                  3*4
+	 *  errorType|errorNum|     checkSum       1*4
+	 *  	            errorMsg
+	 *            
+	 *            
+	 * @param type
+	 * @param msg
+	 * @return
+	 */
+	public static byte[] creatNotifaction(byte errorType, byte errorNum, byte[] msg){
+		int len;
+		if(msg!=null)
+			len = 4*4 + msg.length;
+		else 
+			len = 16;
+		byte[] notification = new byte[len];
+		//creat msg head
+		byte[] type = new byte[2];
+		type[0] = (byte)0x00;
+		type[1] = (byte)0x05;
+		byte[] bXid = new byte[4];
+		bXid[3] = (byte)0x05;
+		notification = setHead(notification, type, bXid);	
+		
+		notification[12] = errorType;
+		notification[13] = errorNum;
+		
+		if(msg!=null)
+			for(int i=0; i<msg.length ; i++)
+				notification[16+i] = msg[i];
+					
+		return notification;
+		
 	}
 	
 }

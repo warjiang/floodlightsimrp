@@ -1,1 +1,0 @@
-{"60001":{"60002":{"0":{"src":60001,"dest":60002,"len":2,"priority":3,"latency":10,"bandwidth":10,"delay":819210,"pathKey":0,"type":0,"inuse":true,"pathNode":[60002],"nextHop":60002},"60002":{"src":60001,"dest":60002,"len":2,"priority":3,"latency":10,"bandwidth":10,"delay":819210,"pathKey":0,"type":0,"inuse":false,"pathNode":[60001,60002],"nextHop":60001}}}}

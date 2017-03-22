@@ -18,13 +18,14 @@ public class Neighbor{
 	public DatapathId inSwitch; 
 	public SectionAttri attribute;
 	public int delay;  //delay = latency(ms) + 8000*confSizeMB/bandwidth (MB/Mbps)
-	public boolean exists = true;  //true inuse, false deleted; 0x00 add, 0x40 delete, 0x80 modify
+	public boolean exists = true;  //true can be used, false deleted; 0x00 add, 0x40 delete, 0x80 modify
 	
 	public Neighbor(){
 		this.ASnodeDest = new ASnode();
 		this.ASnodeSrc  = new ASnode();
 		this.attribute  = new SectionAttri();
 		this.delay      = Integer.MAX_VALUE;	
+		this.exists     = true; 
 	}
 	
 	//maybe need check
@@ -45,30 +46,39 @@ public class Neighbor{
 	public ASnode getASnodeSrc(){
 		return this.ASnodeSrc;
 	}
+	
 	public int getASnumSrc(){
 		return this.ASnodeSrc.ASnum;
 	}
+	
 	public ASnode getASnodeDest(){
 		return this.ASnodeDest;
 	}
+	
 	public int getASnumDest(){
 		return this.ASnodeDest.ASnum;
 	}
+	
 	public OFPort getOutPort(){
 		return this.outPort;
 	}
+	
 	public DatapathId getOutSwitch(){
 		return this.outSwitch;
 	}
-	public OFPort getInPort(){
+	
+	public OFPort getInPort(){	
 		return this.inPort;
 	}
+	
 	public DatapathId getInSwitch(){
 		return this.inSwitch;
 	}
+
 	public Integer getLatency(){
 		return this.attribute.latency;
 	}
+	
 	public int getBandwidth(){
 		return this.attribute.bandwidth;
 	}

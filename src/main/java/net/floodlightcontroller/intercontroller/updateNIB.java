@@ -1,160 +1,143 @@
 package net.floodlightcontroller.intercontroller;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-
-import com.fasterxml.jackson.core.JsonGenerationException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 
 /**
  * @author xftony
  */
 public class updateNIB {
-	public static boolean updateNIBFromNIBMsg(byte[] msg) throws JsonGenerationException, JsonMappingException, IOException{
+	public static boolean updateNIBFromNIBMsg(byte[] msg){
 		boolean getNewNeighborFalg = false;
 		int len = DecodeData.byte2Int(msg,12); //neighbor list len		
 		//	Map<Integer, Neighbor> tmpNeighbors = new HashMap<Integer, Neighbor> ();
 		Neighbor[] newNeighbors = new Neighbor[len];
 		for(int i=0; i< len; i++){
 			newNeighbors[i] = DecodeData.byte2Neighbor(msg,16 + 48*i);	
-			int ASsrcNum  = newNeighbors[i].ASnodeSrc.ASnum;
-			int ASdestNum = newNeighbors[i].ASnodeDest.ASnum;
+			HandleSIMRP.printNeighbor(newNeighbors[i]);
 			
-			if(!newNeighbors[i].exists){ //the neighbor need to be deleted
-				if (InterSocket.NIB.containsKey(ASsrcNum)&&
-						InterSocket.NIB.get(ASsrcNum).containsKey(ASdestNum)){
-					InterSocket.NIB.get(ASsrcNum).remove(ASdestNum);
-					
-					//update the toBeUpdateList for every ASnum in ASnodeNumList but myASnum
-					for(int ASnum : InterSocket.ASnodeNumList){
-						if(ASnum == InterSocket.myASnum||ASnum==ASsrcNum)
-							continue;
-						if(InterSocket.NIB2BeUpdate.containsKey(ASnum))
-							InterSocket.NIB2BeUpdate.get(ASnum).add(newNeighbors[i]); 
-						else{
-							HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
-							tmpHashSet.add(newNeighbors[i]);
-							InterSocket.NIB2BeUpdate.put(ASnum, tmpHashSet);
-						}
-						InterSocket.updateFlagNIB.put(ASnum, true);	
-						InterSocket.updateNIBFlagTotal = true;
-					}	
-					getNewNeighborFalg = true;					
-				}
-				continue;
+			if(!newNeighbors[i].exists) //the neighbor need to be deleted
+				getNewNeighborFalg = updateNIBDeleteNeighbor(newNeighbors[i]) || getNewNeighborFalg ;		
+			else{
+				getNewNeighborFalg = updateNIBAddNeighbor(newNeighbors[i])|| getNewNeighborFalg ;
+			//	getNewNeighborFalg = getNewNeighborFalg || tmpFlag;
+						
 			}
-			
-			//update the node list
-			
-			if(!InterSocket.ASnodeNumList.contains(ASsrcNum)){
-				InterSocket.ASnodeNumList.add(ASsrcNum);//only add, do not delete. as it can be a lonely AS
-				InterSocket.ASnodeList.put(ASsrcNum, newNeighbors[i].ASnodeSrc);
-			}
-			if(!InterSocket.ASnodeNumList.contains(ASdestNum)){
-				InterSocket.ASnodeNumList.add(ASdestNum);
-				InterSocket.ASnodeList.put(ASdestNum, newNeighbors[i].ASnodeDest);
-			}
-			while(InterSocket.NIBwriteLock ){
-				;
-			}
-			InterSocket.NIBwriteLock = true; //lock NIB
-			// if it's the new neighbor add to tmpNeighbors, if not ignore
-			if(!InterSocket.NIB.containsKey(ASsrcNum)){
-				Map<Integer, Neighbor> tmpNeighbors = new HashMap<Integer,Neighbor>();
-				tmpNeighbors.put(newNeighbors[i].ASnodeDest.ASnum, newNeighbors[i]);
-				InterSocket.NIB.put(ASsrcNum,tmpNeighbors);	
-				
-				//update the toBeUpdateList for every ASnum in ASnodeNumList but myASnum
-				for(int ASnum : InterSocket.ASnodeNumList){
-					if(ASnum == InterSocket.myASnum||ASnum==ASsrcNum)
-						continue;
-					if(InterSocket.NIB2BeUpdate.containsKey(ASnum))
-						InterSocket.NIB2BeUpdate.get(ASnum).add(newNeighbors[i]); 
-					else{
-						HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
-						tmpHashSet.add(newNeighbors[i]);
-						InterSocket.NIB2BeUpdate.put(ASnum, tmpHashSet);
-					}
-					InterSocket.updateFlagNIB.put(ASnum, true);	
-					InterSocket.updateNIBFlagTotal = true;
-				}	
-				getNewNeighborFalg = true;
-			}
-			else if(!InterSocket.NIB.get(ASsrcNum).containsKey(ASdestNum) ||
-					!InterSocket.NIB.get(ASsrcNum).get(ASdestNum).equals(newNeighbors[i])){
-				InterSocket.NIB.get(ASsrcNum).remove(ASdestNum); // replace the old section
-				InterSocket.NIB.get(ASsrcNum).put(ASdestNum, newNeighbors[i]); 
-				for(int ASnum : InterSocket.ASnodeNumList){
-					if(ASnum == InterSocket.myASnum||ASnum==ASsrcNum)
-						continue;
-					
-					if(InterSocket.NIB2BeUpdate.containsKey(ASnum)){
-						for(Neighbor ASneighbor : InterSocket.NIB2BeUpdate.get(ASnum))
-							if(ASneighbor.sameSrcDest(newNeighbors[i]))
-								InterSocket.NIB2BeUpdate.get(ASnum).remove(ASneighbor); //the same Src/Dest, only the lasted one nedd update
-						InterSocket.NIB2BeUpdate.get(ASnum).add(newNeighbors[i]); 
-					}
-					else{
-						HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
-						tmpHashSet.add(newNeighbors[i]);
-						InterSocket.NIB2BeUpdate.put(ASnum, tmpHashSet);
-					}
-					InterSocket.updateFlagNIB.put(ASnum, true);	
-					InterSocket.updateNIBFlagTotal = true;
-				}
-				getNewNeighborFalg = true;
-			}
-		//	if(getNewNeighborFalg)
-		//		CreateJson.createNIBJson();
-			InterSocket.NIBwriteLock = false; //unlock NIB		
 		}
 		return getNewNeighborFalg;
 	}
 
-	public static boolean updateNIBMoveAS(int ASnumBeMoved) throws JsonGenerationException, JsonMappingException, IOException{
+	public static boolean updateNIBDeleteNeighbor(Neighbor neighbor2Bemoved){
 		boolean getNewNeighborFalg = false;
-
-		//	Map<Integer, Neighbor> tmpNeighbors = new HashMap<Integer, Neighbor> ();
-		Neighbor deleteNeighbor = new Neighbor();
-		deleteNeighbor.ASnodeSrc.ASnum   = InterSocket.myASnum;
-		deleteNeighbor.ASnodeDest.ASnum  = ASnumBeMoved;
-		deleteNeighbor.attribute.latency = Integer.MAX_VALUE;
-		deleteNeighbor.exists = false;
-		int ASsrcNum = InterSocket.myASnum;
+		neighbor2Bemoved.exists = false;
+		int ASsrcNum = neighbor2Bemoved.getASnumSrc();
 		
-		if (InterSocket.NIB.containsKey(ASsrcNum)&&
-				InterSocket.NIB.get(ASsrcNum).containsKey(ASnumBeMoved)){
-			while(InterSocket.NIBwriteLock ){
+		if (InterController.NIB.containsKey(ASsrcNum)&&
+				InterController.NIB.get(ASsrcNum).containsKey(neighbor2Bemoved.getASnumDest())){
+			while(InterController.NIBWriteLock ){
 				;
 			}
-			InterSocket.NIBwriteLock = true; //lock NIB
-			InterSocket.NIB.get(ASsrcNum).remove(ASnumBeMoved);
-			InterSocket.NIBwriteLock = false; //unlock NIB
-			//update the toBeUpdateList for every ASnum in ASnodeNumList but myASnum
-			for(int ASnum : InterSocket.ASnodeNumList){
-				if(ASnum == InterSocket.myASnum||ASnum==ASsrcNum)
-					continue;
-				if(InterSocket.NIB2BeUpdate.containsKey(ASnum))
-					InterSocket.NIB2BeUpdate.get(ASnum).add(deleteNeighbor); 
-				else{
-					HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
-					tmpHashSet.add(deleteNeighbor);
-					InterSocket.NIB2BeUpdate.put(ASnum, tmpHashSet);
-				}
-				InterSocket.updateFlagNIB.put(ASnum, true);	
-				InterSocket.updateNIBFlagTotal = true;
-				getNewNeighborFalg = true;		
-			}	
-						
-		}
+			InterController.NIBWriteLock = true; //lock NIB
+			InterController.NIB.get(ASsrcNum).remove(neighbor2Bemoved.getASnumDest());
+			InterController.NIBWriteLock = false; //unlock NIB
 			
+			updateNIB2BeUpdate(neighbor2Bemoved, false);
+			getNewNeighborFalg = true;							
+		}			
 	return getNewNeighborFalg;
 	}
 
-	public static boolean updateNIBAddAS(int ASnumBeAdded){
+	/**
+	 * add new neighbor to the NIB
+	 * @param newNeighbor
+	 * @return if getNewNeighborFalg
+	 */
+	public static boolean updateNIBAddNeighbor(Neighbor newNeighbor){
+		boolean getNewNeighborFalg = false;
+		if(newNeighbor==null)
+			return getNewNeighborFalg;
+
+		int ASsrcNum  = newNeighbor.ASnodeSrc.ASnum;
+		int ASdestNum = newNeighbor.ASnodeDest.ASnum;
 		
-		return true;
+		//update the node list			
+		if(!InterController.ASnodeNumList.contains(ASsrcNum)){
+			InterController.ASnodeNumList.add(ASsrcNum);//only add, do not delete. as it can be a lonely AS
+			InterController.ASnodeList.put(ASsrcNum, newNeighbor.ASnodeSrc);
+		}
+		if(!InterController.ASnodeNumList.contains(ASdestNum)){
+			InterController.ASnodeNumList.add(ASdestNum);
+			InterController.ASnodeList.put(ASdestNum, newNeighbor.ASnodeDest);
+		}
+		
+		//update the NIB
+		while(InterController.NIBWriteLock ){
+			;
+		}
+		InterController.NIBWriteLock = true; //lock NIB
+		// if it's the new neighbor add to tmpNeighbors, if not ignore
+		if(InterController.NIB.containsKey(ASsrcNum)){
+			if(InterController.NIB.get(ASsrcNum).containsKey(ASdestNum)){
+				if(!InterController.NIB.get(ASsrcNum).get(ASdestNum).equals(newNeighbor)){
+					InterController.NIB.get(ASsrcNum).remove(ASdestNum); // replace the old section
+					InterController.NIB.get(ASsrcNum).put(ASdestNum, newNeighbor.clone()); 	
+					updateNIB2BeUpdate(newNeighbor, true);
+					getNewNeighborFalg = true;
+				}
+			}
+			else{
+				InterController.NIB.get(ASsrcNum).put(ASdestNum, newNeighbor.clone()); 	
+				updateNIB2BeUpdate(newNeighbor, true);
+				getNewNeighborFalg = true;
+			}
+		}
+		else{
+			Map<Integer, Neighbor> tmpNeighbors = new HashMap<Integer,Neighbor>();
+			tmpNeighbors.put(newNeighbor.ASnodeDest.ASnum, newNeighbor.clone());
+			InterController.NIB.put(ASsrcNum,tmpNeighbors);				
+			updateNIB2BeUpdate(newNeighbor, true);
+			getNewNeighborFalg = true;
+		}		
+		InterController.NIBWriteLock = false; //unlock NIB		
+		
+		if(getNewNeighborFalg)
+			CreateJson.createNIBJson();		
+		
+		return getNewNeighborFalg;
 	}
+
+	/**
+	 * 
+	 * @param newNeighbor
+	 * @param ifadd  true add; false delete
+	 */
+	public static void updateNIB2BeUpdate(Neighbor newNeighbor, boolean ifadd){
+		int ASsrcNum = newNeighbor.getASnumSrc();
+		
+		newNeighbor.exists = ifadd;
+		
+		while(InterController.updateNIBWriteLock){
+			;
+		}
+		InterController.updateNIBWriteLock = true;
+			
+		for(int ASnum : InterController.ASnodeNumList){
+			if(ASnum == InterController.myASnum||ASnum==ASsrcNum)
+				continue;
+			if(InterController.NIB2BeUpdate.containsKey(ASnum)){
+				if(!InterController.NIB2BeUpdate.get(ASnum).contains(newNeighbor))
+					InterController.NIB2BeUpdate.get(ASnum).add(newNeighbor); 
+				}
+			else{
+				HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
+				tmpHashSet.add(newNeighbor);
+				InterController.NIB2BeUpdate.put(ASnum, tmpHashSet);
+			}
+			InterController.updateFlagNIB.put(ASnum, true);	
+			InterController.updateNIBFlagTotal = true;	
+		}
+		HandleSIMRP.printNIB2BeUpdate(InterController.NIB2BeUpdate);
+		InterController.updateNIBWriteLock = false;
+	}	
 }

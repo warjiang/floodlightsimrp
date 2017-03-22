@@ -25,8 +25,8 @@ public class MultiPath {
 		this.delayMap = new HashMap<Integer, SectionAttri>(); //ASnodeDestNum, val; maybe need to check
 		this.perviousNode = new HashMap<Integer, Integer>(); //ASnodeDestNum, previousNodeNum;
 		this.RIBFromlocal = new HashMap<Integer,Map<Integer,ASpath>>();//<ASnumDest,<key, ASpath>>
-		this.confSizeMB = InterSocket.confSizeMB;
-		this.MaxPathNum = InterSocket.maxPathNum;
+		this.confSizeMB = InterController.confSizeMB;
+		this.MaxPathNum = InterController.maxPathNum;
 	}
 	
 	/**
@@ -101,7 +101,7 @@ public class MultiPath {
 	        		tmpBandwidth = this.delayMap.get(nodeClose).bandwidth < NIB.get(nodeClose).get(nodeOpen).getBandwidth()?
 							delayMap.get(nodeClose).bandwidth : NIB.get(nodeClose).get(nodeOpen).getBandwidth();
 					tmpDelay = pathValue(tmpLatency, tmpBandwidth); //src to dest
-					if(tmpLatency>InterSocket.maxLatency||tmpBandwidth<InterSocket.minBandwidth)
+					if(tmpLatency>InterController.maxLatency||tmpBandwidth<InterController.minBandwidth)
 						continue;
 					if(minValue> tmpDelay){
 						minValue = tmpDelay;
@@ -114,7 +114,7 @@ public class MultiPath {
 				}
 			}
 		}
-		if(!flag || tmpSectionAttri.bandwidth<InterSocket.minBandwidth) //there is no link between open and close, double check the bandwidth
+		if(!flag || tmpSectionAttri.bandwidth<InterController.minBandwidth) //there is no link between open and close, double check the bandwidth
 			return null;
 		section.ASnumSrc  = NodeNumInClose;
 		section.ASnumDest = NodeNumInOpen;
