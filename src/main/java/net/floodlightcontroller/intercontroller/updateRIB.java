@@ -177,8 +177,13 @@ public class updateRIB {
 		}
 		InterController.RIBWriteLock = false; //unlock RIB	
 		
-		if(path.pathNode.size()>2)// min size is 3
-			updateSinglePathInRIB2BeUpdate(tmpPath, true);
+		if(getNewRIBFlag){
+			//push the OF0
+			//if(path.pathKey==0)
+			//	InterController.pushSinglePath2Switch(path);
+			if(path.pathNode.size()>2)// min size is 3			
+				updateSinglePathInRIB2BeUpdate(tmpPath, true);		
+		}
 		return getNewRIBFlag;
 	}
 	
@@ -191,6 +196,9 @@ public class updateRIB {
 	 * @throws IOException 
 	 */
 	public static void updateSinglePathInRIB2BeUpdateBeginWithMyASnum(ASpath path, boolean ifadd){
+		//push OF0 to sw
+	//	if(ifadd && path.pathKey==0)
+	//		InterController.pushSinglePath2Switch(path);
 		if(path.pathNode.size()>2){		
 			ASpath pathTmp = path.cloneBeginWithNextHop();
 			updateSinglePathInRIB2BeUpdate(pathTmp, ifadd);

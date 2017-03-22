@@ -327,7 +327,7 @@ public class Routing {
 			case 0x02: //output to port and controller
 				actions.add(sw.getOFFactory().actions().output(outPort,0));
 				actions.add(sw.getOFFactory().actions().output(OFPort.CONTROLLER, 65535));
-				idleTimeout *= 5;
+				idleTimeout = 0;
 				priority = priorityLow;
 				break;
 			case 0x03:  //set vlanId and output port
