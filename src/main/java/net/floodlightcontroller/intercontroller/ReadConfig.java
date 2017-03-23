@@ -163,7 +163,7 @@ public class ReadConfig {
 		if(conf.containsKey("holdingTime")) InterController.holdingTime = conf.get("holdingTime");
 		if(conf.containsKey("keepaliveTime")) InterController.keepaliveTime = conf.get("keepaliveTime");
 		if(conf.containsKey("sendHelloDuration")) InterController.sendHelloDuration = conf.get("sendHelloDuration");
-		if(conf.containsKey("sendUpdateNIBFirstCheck")) InterController.sendUpdateNIBFirstCheck = conf.get("sendUpdateNIBFirstCheck");
+		if(conf.containsKey("sendUpdateNIBDuration")) InterController.sendUpdateNIBDuration = conf.get("sendUpdateNIBDuration");
 		if(conf.containsKey("confSizeMB")) InterController.confSizeMB = conf.get("confSizeMB");
 		if(conf.containsKey("maxPathNum")) InterController.maxPathNum = conf.get("maxPathNum");
 		if(conf.containsKey("minBandwidth")) InterController.minBandwidth = conf.get("minBandwidth");

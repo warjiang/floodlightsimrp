@@ -1225,7 +1225,7 @@ IFloodlightModule, IInfoProvider {
 	 * Send LLDPs to all switch-ports
 	 */
 	protected void discoverOnAllPorts() {
-	//	log.info("Sending LLDP packets out of all the enabled ports");
+		//log.info("Sending LLDP packets out of all the enabled ports");
 		// Send standard LLDPs
 		for (DatapathId sw : switchService.getAllSwitchDpids()) {
 			IOFSwitch iofSwitch = switchService.getSwitch(sw);

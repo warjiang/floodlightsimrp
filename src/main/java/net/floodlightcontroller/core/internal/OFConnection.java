@@ -52,7 +52,6 @@ import org.projectfloodlight.openflow.protocol.OFRequest;
 import org.projectfloodlight.openflow.protocol.OFStatsReply;
 import org.projectfloodlight.openflow.protocol.OFStatsReplyFlags;
 import org.projectfloodlight.openflow.protocol.OFStatsRequest;
-import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFAuxId;
 import org.projectfloodlight.openflow.types.U64;
@@ -166,11 +165,7 @@ public class OFConnection implements IOFConnection, IOFConnectionBackend{
 						String.valueOf(msgList).substring(0, 80));
 			return IterableUtils.toCollection(msgList);
 		}
-		for (OFMessage m : msgList) {		
-			OFType a = m.getType();
-			if (a==OFType.EXPERIMENTER) {
-				a =OFType.TABLE_MOD;
-			}
+		for (OFMessage m : msgList) {			
 			if (logger.isTraceEnabled()) {
 				logger.trace("{}: send {}", this, m);
 				counters.updateWriteStats(m);

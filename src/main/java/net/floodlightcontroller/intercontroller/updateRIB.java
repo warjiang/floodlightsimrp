@@ -18,7 +18,7 @@ public class updateRIB {
 		}
 		InterController.NIBWriteLock = true; //lock NIB
 		MultiPath tmpCurMultiPath = new MultiPath();			
-		tmpCurMultiPath.updatePath(InterController.myASnum, InterController.NIB, InterController.ASnodeNumList, 0);
+		tmpCurMultiPath.updatePath(InterController.myASnum, InterController.NIB, InterController.ASNumList, 0);
 		InterController.NIBWriteLock = false; //unlock NIB
 			
 		//update RIB Path here 

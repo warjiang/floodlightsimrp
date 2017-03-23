@@ -114,7 +114,6 @@ public class OFMessageDamper {
      * @throws IOException
      */
     public boolean write(IOFSwitch sw, OFMessage msg) throws IOException {
-    	OFType a = msg.getType();
         if (!msgTypesToCache.contains(msg.getType())) {
             sw.write(msg);
             return true;

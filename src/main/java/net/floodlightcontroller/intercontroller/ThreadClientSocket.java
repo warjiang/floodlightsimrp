@@ -65,7 +65,7 @@ public  class ThreadClientSocket extends Thread{
 		byte keepaliveFlag = 0x00;
 		boolean sendTotalNIB = true;
 		timePre = System.currentTimeMillis()/1000;
-		long timeFirstUpdateNIB = 0;
+		long timeFirstUpdateNIB = 0; 
 		long timeSendHello = 0;
 		String socketAddress;
 		try{
@@ -152,7 +152,7 @@ public  class ThreadClientSocket extends Thread{
 				//send total NIB, and it's only send at begining. you can add notification msg to change the sendTotalNIB to re-send it.
 				if(helloFlag 
 						&& sendTotalNIB
-						&& (timeCur-timeFirstUpdateNIB >InterController.sendUpdateNIBFirstCheck) ){
+						&& (timeCur-timeFirstUpdateNIB >InterController.sendUpdateNIBDuration) ){
 					timeFirstUpdateNIB = System.currentTimeMillis()/1000;
 					myMsg = EncodeData.creatUpdateNIB(InterController.NIB);
 					// in case doWrite failed, retry 10 times

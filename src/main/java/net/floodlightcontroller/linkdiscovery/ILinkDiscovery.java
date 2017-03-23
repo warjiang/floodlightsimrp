@@ -16,11 +16,6 @@
 
 package net.floodlightcontroller.linkdiscovery;
 
-import java.io.ByteArrayInputStream;   
-import java.io.ByteArrayOutputStream;   
-import java.io.ObjectInputStream;   
-import java.io.ObjectOutputStream;   
-import java.io.Serializable;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
@@ -28,7 +23,7 @@ import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.U64;
 
-public interface ILinkDiscovery  {
+public interface ILinkDiscovery {
 
     @JsonSerialize(using=ToStringSerializer.class)
     public enum UpdateOperation {
@@ -52,7 +47,7 @@ public interface ILinkDiscovery  {
         }
     }
 
-    public class LDUpdate implements Serializable{
+    public class LDUpdate {
         protected DatapathId src;
         protected OFPort srcPort;
         protected DatapathId dst;

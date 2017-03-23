@@ -17,7 +17,6 @@
 
 package net.floodlightcontroller.core.internal;
 
-import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.util.ArrayList;
@@ -61,8 +60,6 @@ import net.floodlightcontroller.core.util.ListenerDispatcher;
 import net.floodlightcontroller.core.web.CoreWebRoutable;
 import net.floodlightcontroller.debugcounter.IDebugCounterService;
 import net.floodlightcontroller.debugevent.IDebugEventService;
-import net.floodlightcontroller.intercontroller.InterController;
-import net.floodlightcontroller.intercontroller.Routing;
 import net.floodlightcontroller.notification.INotificationManager;
 import net.floodlightcontroller.notification.NotificationManagerFactory;
 
@@ -129,7 +126,7 @@ public class Controller implements IFloodlightProviderService, IStorageSourceLis
 
     // Module dependencies
     private IStorageSourceService storageSourceService;
-    private static IOFSwitchService switchService;
+    private IOFSwitchService switchService;
     private IDebugCounterService debugCounterService;
     protected IDebugEventService debugEventService;
     private IRestApiService restApiService;
@@ -213,17 +210,6 @@ public class Controller implements IFloodlightProviderService, IStorageSourceLis
         @Override
         public void switchAdded(DatapathId switchId) {
             notifier.postNotification("Switch " +  switchId + " connected.");
-            IOFSwitch sw = switchService.getSwitch(switchId);
-            if(!InterController.curRIB.isEmpty()&&
-            		InterController.curRIB.containsKey(InterController.myASnum)&&
-            		!InterController.curRIB.get(InterController.myASnum).isEmpty())
-				try {
-					Routing.pushBestPath2Switch(InterController.curRIB.get(InterController.myASnum), sw);
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-            
         }
 
         @Override

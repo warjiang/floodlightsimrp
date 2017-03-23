@@ -61,15 +61,11 @@ public class updateNIB {
 		int ASsrcNum  = newNeighbor.ASnodeSrc.ASnum;
 		int ASdestNum = newNeighbor.ASnodeDest.ASnum;
 		
-		//update the node list			
-		if(!InterController.ASnodeNumList.contains(ASsrcNum)){
-			InterController.ASnodeNumList.add(ASsrcNum);//only add, do not delete. as it can be a lonely AS
-			InterController.ASnodeList.put(ASsrcNum, newNeighbor.ASnodeSrc);
-		}
-		if(!InterController.ASnodeNumList.contains(ASdestNum)){
-			InterController.ASnodeNumList.add(ASdestNum);
-			InterController.ASnodeList.put(ASdestNum, newNeighbor.ASnodeDest);
-		}
+		//update the node list		
+		addASnum2ASnumList(ASsrcNum);
+		addASnum2ASnumList(ASdestNum);
+		addASNode2ASNodeList(newNeighbor.ASnodeSrc);
+		addASNode2ASNodeList(newNeighbor.ASnodeDest);
 		
 		//update the NIB
 		while(InterController.NIBWriteLock ){
@@ -122,7 +118,7 @@ public class updateNIB {
 		}
 		InterController.updateNIBWriteLock = true;
 			
-		for(int ASnum : InterController.ASnodeNumList){
+		for(int ASnum : InterController.ASNumList){
 			if(ASnum == InterController.myASnum||ASnum==ASsrcNum)
 				continue;
 			if(InterController.NIB2BeUpdate.containsKey(ASnum)){
@@ -140,4 +136,15 @@ public class updateNIB {
 		HandleSIMRP.printNIB2BeUpdate(InterController.NIB2BeUpdate);
 		InterController.updateNIBWriteLock = false;
 	}	
+	
+	public static void addASnum2ASnumList(int ASnum){
+		if(!InterController.PIB.contains(ASnum) && !InterController.ASNumList.contains(ASnum))
+			InterController.ASNumList.add(ASnum);//only add, do not delete. as it can be a lonely AS
+	}
+	
+	public static void addASNode2ASNodeList(ASnode node){
+		if(!InterController.ASNodeList.containsKey(node.ASnum))
+			InterController.ASNodeList.put(node.ASnum, node.clone());
+			
+	}
 }

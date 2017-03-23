@@ -12,8 +12,6 @@ import org.python.modules.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonGenerationException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 
 public class HandleSIMRP {
 	protected static Logger log = LoggerFactory.getLogger(ThreadClientSocket.class);
@@ -26,7 +24,7 @@ public class HandleSIMRP {
 	 * @return
 	 */
 	public static byte handleHello(byte[] msg,OutputStream out, boolean HelloFlag, String socketAddress){
-		System.out.printf("%s:Get Hello Msg\n", socketAddress);
+		System.out.printf("%s(%s):Get Hello Msg\n", socketAddress, System.currentTimeMillis()/1000);
 		int len =DecodeData.byte2Int(msg,8);
 
 		// get hello+yes 
@@ -54,22 +52,22 @@ public class HandleSIMRP {
 		}
 		
 		if((msg[msg.length-3]&0x01)==0x01){
-			System.out.printf("%s:Get Keepalive totalNIB Msg\n", socketAddress);
+			System.out.printf("%s(%s):Get Keepalive regular Msg\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x21;	
 		}		
 		else if((msg[msg.length-3]&0x02)==0x02){
-			System.out.printf("%s:Get KeepaliveTR Msg\n", socketAddress);
+			System.out.printf("%s(%s):Get KeepaliveTR Msg\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x22;	
 		}	
 		else if((msg[msg.length-3]&0x04)==0x04){
-			System.out.printf("%s:Get KeepaliveTN Msg\n", socketAddress);
+			System.out.printf("%s(%s):Get KeepaliveTN Msg\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x23;	
 		}	
-		System.out.printf("%s:Get Keepalive regular Msg\n", socketAddress);
+		System.out.printf("%s(%s):Get Keepalive Msg, no totalNIB\n", socketAddress, System.currentTimeMillis()/1000);
 		return 0x20;
 	}
 		
-	public static byte handleUpdataNIB(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) throws IOException{
+	public static byte handleUpdataNIB(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) {
 		if(!HelloFlag){
 			System.out.println("HelloFlag=False(UpdateNIB)");
 			return 0x03;
@@ -80,10 +78,10 @@ public class HandleSIMRP {
 		byte firstMsgFlag = 0x00; //if the first NIB msg or not. 	
 		if((msg[len-3]&0x01)==0x01){
 			firstMsgFlag = 0x04; // yes it's the total NIB
-			System.out.printf("%s:Get UpdataNIB Msg with total NIB\n",socketAddress);
+			System.out.printf("%s(%s):Get UpdataNIB Msg with total NIB\n",socketAddress, System.currentTimeMillis()/1000);
 		}
 		else
-			System.out.printf("%s:Get UpdataNIB Msg\n", socketAddress);
+			System.out.printf("%s(%s):Get UpdataNIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
 		boolean getNewNeighborFlag = false;
 		boolean getNewRIBFlag = false;
 		getNewNeighborFlag = updateNIB.updateNIBFromNIBMsg(msg);
@@ -105,7 +103,7 @@ public class HandleSIMRP {
 		return (byte)(0x31|firstMsgFlag);
 	}
 	
-	public static byte handleUpdateRIB(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) throws JsonGenerationException, JsonMappingException, IOException{
+	public static byte handleUpdateRIB(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) {
 		if(!HelloFlag){
 			System.out.printf("%s:HelloFlag=False(UpdateRIB)\n", socketAddress);
 			return 0x04;
@@ -113,7 +111,7 @@ public class HandleSIMRP {
 		if(msg.length<12)
 			return 0x00; //it should not happen
 		boolean getNewRIBFlag = false;
-		System.out.printf("%s:Get UpdataRIB Msg\n", socketAddress);
+		System.out.printf("%s(%s):Get UpdataRIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
 		int pathNum = DecodeData.byte2Int(msg,12);
 		//read the RIBpath in the msg
 		int index = 16;
@@ -147,6 +145,11 @@ public class HandleSIMRP {
 		return (byte) 0x40;   //0100 0000
 	}
 	
+	public static byte handleNotifaction(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress){
+		//TODO
+		return 0x50;
+	}
+	
 	public static byte handleMsg(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) throws IOException{
         //ToDo check the msg first
 		if(msg.length<12){
@@ -159,6 +162,7 @@ public class HandleSIMRP {
 		case 0x02: return handleKeepalive(msg, out, HelloFlag, socketAddress);
 		case 0x03: return handleUpdataNIB(msg, out, HelloFlag, socketAddress);
 		case 0x04: return handleUpdateRIB(msg, out, HelloFlag, socketAddress);
+		case 0x05: return handleNotifaction(msg, out, HelloFlag, socketAddress);
 		}
 		return 0x00; // unMatch	
 	}

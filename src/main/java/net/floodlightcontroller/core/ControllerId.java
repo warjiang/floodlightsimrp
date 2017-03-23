@@ -19,6 +19,7 @@ public class ControllerId {
     private ControllerId(short nodeId) {
         if(nodeId == ClusterConfig.NODE_ID_UNCONFIGURED)
             throw new IllegalArgumentException("nodeId is unconfigured");
+
         this.nodeId = nodeId;
     }
 

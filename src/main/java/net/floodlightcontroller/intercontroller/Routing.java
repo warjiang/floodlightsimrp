@@ -98,7 +98,7 @@ public class Routing {
 		int mask = 0;  //in ASnodeList
 		int ipPerfixInt = 0; // in ASnodeList
 		int ipInASnum = 0;
-		for(Map.Entry<Integer, ASnode> entryA: InterController.ASnodeList.entrySet()){
+		for(Map.Entry<Integer, ASnode> entryA: InterController.ASNodeList.entrySet()){
 			mask = entryA.getValue().IPperfix.mask;
 			if(maskTmp > mask)
 				continue;
@@ -152,6 +152,7 @@ public class Routing {
 					TCP tcp = (TCP) ip.getPayload();
 					if(InterController.serverPort == tcp.getSourcePort().getPort()
 							||InterController.serverPort ==tcp.getDestinationPort().getPort()){
+						//it's the server socket Port
 						type = (byte)(type&0xf5);
 					}
 					
@@ -168,10 +169,14 @@ public class Routing {
 				else if(ip.getProtocol().equals(IpProtocol.ICMP))	{
 					mb.setExact(MatchField.IP_PROTO, IpProtocol.ICMP);
 				}
-				if(0x1f==type && path.pathNode.size()>1)
-					type = (byte)(type&0xf3); //set vlanId and output port
-				else
-					type = (byte)(type&0xf1); //output port
+				//if it's not the server socket Port
+				if(0x1f==type){ 
+					if(path.pathNode.size()>1)
+						type = (byte)(type&0xf3); //set vlanId and output port
+					else
+						type = (byte)(type&0xf1); //output port
+				}
+					
 			}
 			//match by vid
 			else{
@@ -192,7 +197,7 @@ public class Routing {
 		    mb.setExact(MatchField.ETH_TYPE, EthType.ARP)
 				.setExact(MatchField.ARP_SPA, srcIP)
 				.setExact(MatchField.ARP_TPA, destIP);	
-		    type = (byte)(type&0xf1);
+		    type = (byte)(type&0xf6);
 		}
 		//unknown type: maybe it's IPv6 or something; can be improved
 		else
@@ -342,8 +347,13 @@ public class Routing {
 				break;
 			case 0x05: //for the simrp msg, tcp port = serverPort
 				actions.add(sw.getOFFactory().actions().output(outPort,0));
-				idleTimeout *= 5;
+				idleTimeout = InterController.holdingTime;
 				priority = priorityLow;
+				break;
+			case 0x06:  // for arp 
+				actions.add(sw.getOFFactory().actions().output(outPort,0));
+				idleTimeout = InterController.holdingTime;
+				priority = priorityHigh;
 				break;
 			default:
 				System.out.printf("Routing.java.pushRoute: unknow type:%s\n",type);	

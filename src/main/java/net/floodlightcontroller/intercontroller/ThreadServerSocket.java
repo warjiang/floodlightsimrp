@@ -148,7 +148,7 @@ public class ThreadServerSocket extends Thread{
 				if(InterController.allTheClientStarted 
 						&& helloFlag 
 						&& sendTotalNIB
-						&& (timeCur-timeFirstUpdateNIB >InterController.sendUpdateNIBFirstCheck)){
+						&& (timeCur-timeFirstUpdateNIB >InterController.sendUpdateNIBDuration)){
 					timeFirstUpdateNIB = System.currentTimeMillis()/1000;
 					myMsg = EncodeData.creatUpdateNIB(InterController.NIB);
 					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 11, "totalNIB", socketAddress))

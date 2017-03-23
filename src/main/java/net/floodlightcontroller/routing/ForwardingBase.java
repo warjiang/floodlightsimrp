@@ -461,8 +461,7 @@ public abstract class ForwardingBase implements IOFMessageListener {
 
 	@Override
 	public boolean isCallbackOrderingPrereq(OFType type, String name) {
-		//return (type.equals(OFType.PACKET_IN) && (name.equals("topology") || name.equals("devicemanager")))
-		return (type.equals(OFType.PACKET_IN) && (name.equals("InterController")));
+		return (type.equals(OFType.PACKET_IN) && (name.equals("topology") || name.equals("devicemanager")));
 	}
 
 	@Override

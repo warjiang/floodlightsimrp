@@ -64,7 +64,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	public static int holdingTime = 180;
 	public static int keepaliveTime = 10; //60s
 	public static int sendHelloDuration = 10;
-	public static int sendUpdateNIBFirstCheck = 30;
+	public static int sendUpdateNIBDuration = 10;
 	public static int confSizeMB  = 1024; //1G	
 	public static int maxPathNum  = 8;
 	public static int minBandwidth = 1; //min bandwidth for the path(Mbps);
@@ -98,8 +98,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	public static boolean updateNIBWriteLock;
 	public static boolean allTheClientStarted;
 	
-	public static HashSet<Integer> ASnodeNumList;   //ASnum
-	public static Map<Integer,ASnode> ASnodeList;  //<ASnum, ASnode>
+	public static HashSet<Integer> ASNumList;   //ASnum which is not banned in PIB
+	public static Map<Integer,ASnode> ASNodeList;  //<ASnum, ASnode>, all the ASnodes
 	
 	public static Map<Integer,Map<Integer,Map<Integer,ASpath>>> curRIB;  //<ASnumSrc,<ASnumDest,<pathKey, ASpath>>>
 	public static Map<Integer,LinkedList<ASpath>> RIB2BeUpdate;  //<NextHop,HashSet<ASpath>>
@@ -182,8 +182,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		InterController.NIB              = new HashMap<Integer,Map<Integer,Neighbor>>();
 		InterController.NIB2BeUpdate     = new HashMap<Integer, HashSet<Neighbor>>();
 		InterController.updateFlagNIB    = new HashMap<Integer, Boolean>();
-		InterController.ASnodeNumList    = new HashSet<Integer>();
-		InterController.ASnodeList       = new HashMap<Integer,ASnode>();
+		InterController.ASNumList    = new HashSet<Integer>();
+		InterController.ASNodeList       = new HashMap<Integer,ASnode>();
 		InterController.updateNIBFlagTotal = false;
 		InterController.updateNIBWriteLock = false;
         InterController.NIBWriteLock       = false;
@@ -212,8 +212,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 					+"intercontroller/ASconfig/ASconfigFor" + myIPstr +".conf";
 			InterController.myNeighbors = ReadConfig.readNeighborFromFile(configASAddress);
 			myASnum = getASnumSrcFromNeighbors(myNeighbors);
-			InterController.ASnodeNumList    = getAllASnumFromNeighbors(myNeighbors);
-			InterController.ASnodeList       = getAllASnodeFromNeighbors(myNeighbors);
+			InterController.ASNumList    = getAllASnumFromNeighbors(myNeighbors);
+			InterController.ASNodeList       = getAllASnodeFromNeighbors(myNeighbors);
 			
 			String SIMRPconfig     = "src/main/java/net/floodlightcontroller/" 
 					+"intercontroller/ASconfig/SIMRP.conf";
@@ -235,7 +235,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 			InterController.updateNIBFlagTotal = true; //it wont change anything at this time
 									
 			MultiPath CurMultiPath         = new MultiPath();
-			CurMultiPath.updatePath(myASnum, NIB, ASnodeNumList, 0);
+			CurMultiPath.updatePath(myASnum, NIB, ASNumList, 0);
 			if(!CurMultiPath.RIBFromlocal.isEmpty()){
 				InterController.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
 				pushOF02Switch();
@@ -247,7 +247,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 			startClientTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
 			
 			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			System.out.printf("%s:InterDomain started!!!\nmyASnum=%s,IP=%s\n",df.format(new Date()), myASnum,myIPstr);				
+			System.out.printf("%s(%s):InterDomain started!!!\nmyASnum=%s,IP=%s\n",df.format(new Date()), myASnum,myIPstr, System.currentTimeMillis()/1000);				
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -486,7 +486,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		HashSet<Integer> tmp = new HashSet<Integer>();
 		boolean flag = true;
 		for(Map.Entry<Integer, Neighbor> entry: nodes.entrySet()){
-			if(flag){
+			if(flag){ //get myASnum
 				flag = false;
 				tmp.add(entry.getValue().getASnumSrc());
 			}
