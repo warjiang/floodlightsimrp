@@ -15,7 +15,7 @@ public class updateNIB {
 		Neighbor[] newNeighbors = new Neighbor[len];
 		for(int i=0; i< len; i++){
 			newNeighbors[i] = DecodeData.byte2Neighbor(msg,16 + 48*i);	
-			HandleSIMRP.printNeighbor(newNeighbors[i]);
+			PrintIB.printNeighbor(newNeighbors[i]);
 			
 			if(!newNeighbors[i].exists) //the neighbor need to be deleted
 				getNewNeighborFalg = updateNIBDeleteNeighbor(newNeighbors[i]) || getNewNeighborFalg ;		
@@ -42,7 +42,9 @@ public class updateNIB {
 			InterController.NIB.get(ASsrcNum).remove(neighbor2Bemoved.getASnumDest());
 			InterController.NIBWriteLock = false; //unlock NIB
 			
+			InterController.neighborASNumList.remove(neighbor2Bemoved.getASnumDest());
 			updateNIB2BeUpdate(neighbor2Bemoved, false);
+			
 			getNewNeighborFalg = true;							
 		}			
 	return getNewNeighborFalg;
@@ -62,8 +64,8 @@ public class updateNIB {
 		int ASdestNum = newNeighbor.ASnodeDest.ASnum;
 		
 		//update the node list		
-		addASnum2ASnumList(ASsrcNum);
-		addASnum2ASnumList(ASdestNum);
+		addASnum2ASNumList(ASsrcNum);
+		addASnum2ASNumList(ASdestNum);
 		addASNode2ASNodeList(newNeighbor.ASnodeSrc);
 		addASNode2ASNodeList(newNeighbor.ASnodeDest);
 		
@@ -118,7 +120,7 @@ public class updateNIB {
 		}
 		InterController.updateNIBWriteLock = true;
 			
-		for(int ASnum : InterController.ASNumList){
+		for(int ASnum : InterController.neighborASNumList){
 			if(ASnum == InterController.myASnum||ASnum==ASsrcNum)
 				continue;
 			if(InterController.NIB2BeUpdate.containsKey(ASnum)){
@@ -133,18 +135,30 @@ public class updateNIB {
 			InterController.updateFlagNIB.put(ASnum, true);	
 			InterController.updateNIBFlagTotal = true;	
 		}
-		HandleSIMRP.printNIB2BeUpdate(InterController.NIB2BeUpdate);
+		PrintIB.printNIB2BeUpdate(InterController.NIB2BeUpdate);
 		InterController.updateNIBWriteLock = false;
 	}	
 	
-	public static void addASnum2ASnumList(int ASnum){
-		if(!InterController.PIB.contains(ASnum) && !InterController.ASNumList.contains(ASnum))
-			InterController.ASNumList.add(ASnum);//only add, do not delete. as it can be a lonely AS
+	public static void addASnum2ASNumList(int ASNum){
+		if(!InterController.PIB.contains(ASNum) && !InterController.ASNumList.contains(ASNum))
+			InterController.ASNumList.add(ASNum);//only add, do not delete. as it can be a lonely AS
+	}
+	
+	public static void updateASnum2neighborASNumList(int ASNum, boolean ifadd){
+		if(ifadd){
+			if(!InterController.PIB.contains(ASNum) 
+					&& InterController.myNeighbors.containsKey(ASNum)
+					&& !InterController.neighborASNumList.contains(ASNum))
+				InterController.neighborASNumList.add(ASNum);
+		}
+		else if(InterController.neighborASNumList.contains(ASNum)){
+			InterController.neighborASNumList.remove(ASNum);
+		}
 	}
 	
 	public static void addASNode2ASNodeList(ASnode node){
 		if(!InterController.ASNodeList.containsKey(node.ASnum))
-			InterController.ASNodeList.put(node.ASnum, node.clone());
+			InterController.ASNodeList.put(node.ASnum, node.clone()); //only add, do not delete. as it can be a lonely AS
 			
 	}
 }

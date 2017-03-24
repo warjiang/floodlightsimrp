@@ -341,6 +341,7 @@ public class Routing {
 				priority = priorityHigh;
 				break;
 			case 0x04:  //rm the vlanID
+				//OFFactory my10Factory = OFFactories.getFactory(OFVersion.OF_10);
 				actions.add(sw.getOFFactory().actions().stripVlan());
 				actions.add(sw.getOFFactory().actions().output(outPort, 65535));
 				priority = priorityHigh;

@@ -3,10 +3,7 @@ package net.floodlightcontroller.intercontroller;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Map;
 
 import org.python.modules.time.Time;
 import org.slf4j.Logger;
@@ -24,7 +21,7 @@ public class HandleSIMRP {
 	 * @return
 	 */
 	public static byte handleHello(byte[] msg,OutputStream out, boolean HelloFlag, String socketAddress){
-		System.out.printf("%s(%s):Get Hello Msg\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:%s:Get Hello Msg\n", socketAddress, System.currentTimeMillis()/1000);
 		int len =DecodeData.byte2Int(msg,8);
 
 		// get hello+yes 
@@ -52,18 +49,18 @@ public class HandleSIMRP {
 		}
 		
 		if((msg[msg.length-3]&0x01)==0x01){
-			System.out.printf("%s(%s):Get Keepalive regular Msg\n", socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:Get Keepalive regular Msg\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x21;	
 		}		
 		else if((msg[msg.length-3]&0x02)==0x02){
-			System.out.printf("%s(%s):Get KeepaliveTR Msg\n", socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:Get KeepaliveTR Msg\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x22;	
 		}	
 		else if((msg[msg.length-3]&0x04)==0x04){
-			System.out.printf("%s(%s):Get KeepaliveTN Msg\n", socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:Get KeepaliveTN Msg\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x23;	
 		}	
-		System.out.printf("%s(%s):Get Keepalive Msg, no totalNIB\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:%s:Get Keepalive Msg, no totalNIB\n", socketAddress, System.currentTimeMillis()/1000);
 		return 0x20;
 	}
 		
@@ -78,22 +75,22 @@ public class HandleSIMRP {
 		byte firstMsgFlag = 0x00; //if the first NIB msg or not. 	
 		if((msg[len-3]&0x01)==0x01){
 			firstMsgFlag = 0x04; // yes it's the total NIB
-			System.out.printf("%s(%s):Get UpdataNIB Msg with total NIB\n",socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:Get UpdataNIB Msg with total NIB\n",socketAddress, System.currentTimeMillis()/1000);
 		}
 		else
-			System.out.printf("%s(%s):Get UpdataNIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:Get UpdataNIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
 		boolean getNewNeighborFlag = false;
 		boolean getNewRIBFlag = false;
 		getNewNeighborFlag = updateNIB.updateNIBFromNIBMsg(msg);
 		if(getNewNeighborFlag){
 			System.out.printf("%sNIB.JON update\n", InterController.myIPstr);
 			CreateJson.createNIBJson();
-			printNIB(InterController.NIB);		//for test
+			PrintIB.printNIB(InterController.NIB);		//for test
 			getNewRIBFlag = updateRIB.updateRIBFormNIB();
 			if(getNewRIBFlag){
 				System.out.printf("%sRIB.JON update\n", InterController.myIPstr);
 				CreateJson.createRIBJson();
-				printPath(InterController.curRIB);
+				PrintIB.printRIB(InterController.curRIB);
 			}	
 		}		
 		if(getNewNeighborFlag&&getNewRIBFlag)
@@ -111,7 +108,7 @@ public class HandleSIMRP {
 		if(msg.length<12)
 			return 0x00; //it should not happen
 		boolean getNewRIBFlag = false;
-		System.out.printf("%s(%s):Get UpdataRIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:%s:Get UpdataRIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
 		int pathNum = DecodeData.byte2Int(msg,12);
 		//read the RIBpath in the msg
 		int index = 16;
@@ -139,7 +136,7 @@ public class HandleSIMRP {
 		if(getNewRIBFlag){
 			System.out.printf("%sRIB.JON update\n", InterController.myIPstr);
 			CreateJson.createRIBJson();
-			printPath(InterController.curRIB);
+			PrintIB.printRIB(InterController.curRIB);
 			return (byte)0x41;//0100 0001
 		}
 		return (byte) 0x40;   //0100 0000
@@ -214,52 +211,5 @@ public class HandleSIMRP {
 			System.out.printf("%s:send unknow type msg\n", socketAddress, msgType);
 		return true;
 	}
-	
-	public static void printPath(Map<Integer,Map<Integer,Map<Integer,ASpath>>> curRIB){
-		System.out.printf("curRIB is:\n");
-		for(Map.Entry<Integer,Map<Integer, Map<Integer,ASpath>>> entryA: curRIB.entrySet())
-			for(Map.Entry<Integer, Map<Integer,ASpath>> entryB: entryA.getValue().entrySet())
-				for(Map.Entry<Integer,ASpath> entryC: entryB.getValue().entrySet()){
-					System.out.printf("%s:  %s: %s\n",entryA.getKey(), entryB.getKey(),entryC.getValue().pathNode.toString());			
-		}
-	}
-	public static void printNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
-			System.out.printf("NIB is:\n");
-			for(Map.Entry<Integer, Map<Integer,Neighbor>> entryA: NIB.entrySet())
-				for(Map.Entry<Integer,Neighbor> entryB: entryA.getValue().entrySet()){
-					System.out.printf("src is %s dest is %s: %s->%s\n",entryA.getKey(), entryB.getKey(),entryB.getValue().ASnodeSrc.ASnum,entryB.getValue().ASnodeDest.ASnum);			
-		}
-	}
-	
-	public static void printNIB2BeUpdate(Map<Integer, HashSet<Neighbor>> NIB2BeUpdate){
-		Neighbor tmp;
-		for(Map.Entry<Integer, HashSet<Neighbor>> entry:NIB2BeUpdate.entrySet()){
-			Iterator<Neighbor> nei = entry.getValue().iterator();
-			System.out.printf("NIB to be updated:\n");
-			while(nei.hasNext()){
-				tmp = nei.next();
-				System.out.printf("Neighbor:%s, %s->%s\n",entry.getKey(), tmp.getASnumSrc(), tmp.getASnumDest());
-			}
-		}
-	}
-	
-	public static void printRIB2BeUpdate(Map<Integer, LinkedList<ASpath>> RIB2BeUpdate){
-		for(Map.Entry<Integer, LinkedList<ASpath>> entry:RIB2BeUpdate.entrySet()){
-			//Iterator<Neighbor> nei = entry.getValue().iterator();
-			System.out.printf("RIB to be updated:\n");
-			for(int i =0; i<entry.getValue().size(); i++){
-				System.out.printf("RIB %s->%s : %s\n",entry.getValue().get(i).src, entry.getValue().get(i).dest, entry.getValue().get(i).pathNode);
-			}
-		}
-	}
-	
-	public static void printNeighbor(Neighbor nei){
-		System.out.printf("Get Nei from Msg: %s -> %s type:%s \n",nei.getASnumSrc(), nei.getASnumDest(), nei.exists);
-	}
-	
-	public static void printPath(ASpath path){
-		System.out.printf("Get ASPath from Msg: src:%s dest:%s  Path:%s type:\n",path.src, path.dest, path.pathNode, path.type);
-	}
-
-	
+		
 }

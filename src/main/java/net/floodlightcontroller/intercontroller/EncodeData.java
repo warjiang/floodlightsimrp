@@ -463,6 +463,8 @@ public class EncodeData {
 	
 	/**
 	 * updateRIB typeInHead->0x0004
+	 * we just send updateRIB only when there is a new RIB to be added, will not send a deleted RIB msg.	
+	 * if you want to send the deleted RIB, just rewrite updateRIB.updateRIBFormNIB().
 	 * creat updateRIB msg by the linkedList
 	 *              head               12
 	 *              length             4

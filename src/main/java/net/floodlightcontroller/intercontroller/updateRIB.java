@@ -7,7 +7,8 @@ import java.util.Map;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
 
 public class updateRIB {
-	
+	//we just send updateRIB only when there is a new RIB to be added, will not send a deleted RIB msg.	
+	//if you want to send the deleted RIB, just rewrite updateRIB.updateRIBFormNIB().
 	protected IOFSwitchService switchService;
 	
 	public static boolean updateRIBFormNIB() {
@@ -32,7 +33,7 @@ public class updateRIB {
 			InterController.RIBWriteLock = false;
 			return true;
 		}
-			
+		//get the RIB2BeUpdate
 		//RIBFromlocal: <ASnumDest,<pathKey, ASpath>>
 		for(Map.Entry<Integer, Map<Integer, ASpath>>entryA: tmpCurMultiPath.RIBFromlocal.entrySet()){		
 			//had the RIB to the ASdest in old RIB
@@ -44,21 +45,21 @@ public class updateRIB {
 						//new RIB and old RIB both contain pathKey i, and they are not the same, replace the old path with the new path
 						if(InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).containsKey(i)
 								&& !InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).get(i).pathNode.equals(newPath.pathNodeBeginWithNextHop())){
-							InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).remove(i);
-							InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).put(i, newPath.cloneBeginWithNextHop());
+						//	InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).remove(i);
+						//	InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).put(i, newPath.cloneBeginWithNextHop());
 							if(newPath.pathNode.size()>2)// size>2 means nextHop!=ASnumDest;
 								updateSinglePathInRIB2BeUpdateBeginWithMyASnum(newPath, true);	
 						}
 						//old RIB does not have this pathKey, add the new path
 						else if(!InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).containsKey(i)){
-							InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).put(i, newPath.cloneBeginWithNextHop());
+						//	InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).put(i, newPath.cloneBeginWithNextHop());							
 							if(newPath.pathNode.size()>2)// size>2 means nextHop!=ASnumDest;
 								updateSinglePathInRIB2BeUpdateBeginWithMyASnum(newPath, true);	
 						}
 					}							
 					//the new RIB does not have the pathKey=i, which means new RIB remove the path in the old RIB
 					else if(InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).containsKey(i)){
-						InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).remove(i);
+					//	InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).remove(i);
 						if(InterController.curRIB.get(InterController.myASnum).get(entryA.getKey()).get(i).pathNode.size()>2)// size>2 means nextHop!=ASnumDest;
 							updateSinglePathInRIB2BeUpdateBeginWithMyASnum(entryA.getValue().get(i), false);	
 					}
@@ -66,12 +67,17 @@ public class updateRIB {
 			}
 			//the is no path to the ASnumDest in the old RIB
 			else {					
-				InterController.curRIB.get(InterController.myASnum).put(entryA.getKey(),CloneUtils.ASpathCloneWithNextHop(entryA.getValue()));
+				//InterController.curRIB.get(InterController.myASnum).put(entryA.getKey(),CloneUtils.ASpathCloneWithNextHop(entryA.getValue()));				
 				for(Map.Entry<Integer, ASpath> entryB: entryA.getValue().entrySet())
 					if(entryB.getValue().pathNode.size()>2)// size>2 means nextHop!=ASnumDest;
 						updateSinglePathInRIB2BeUpdateBeginWithMyASnum(entryB.getValue(), true);
 			}	
 		}
+		
+		//update the curRIB
+		InterController.curRIB.remove(InterController.myASnum);
+		InterController.curRIB.put(InterController.myASnum, CloneUtils.RIBlocal2RIB(tmpCurMultiPath.RIBFromlocal));				
+		
 		InterController.RIBWriteLock = false;
 		return true;
 
@@ -89,7 +95,7 @@ public class updateRIB {
 		//add the path to updateRIB
 		for(int i=0; i<ASpaths.size(); i++){
 			ASpath tmpPath = ASpaths.get(i);
-			HandleSIMRP.printPath(tmpPath);
+			PrintIB.printPath(tmpPath);
 			//if the first node is not myASnum, Error
 			if(tmpPath.pathNode.size()<2){
 				System.out.printf("RIBMsg Error: PathNode.size<2");
@@ -199,6 +205,7 @@ public class updateRIB {
 		//push OF0 to sw
 	//	if(ifadd && path.pathKey==0)
 	//		InterController.pushSinglePath2Switch(path);
+		PrintIB.printPath(path);
 		if(path.pathNode.size()>2){		
 			ASpath pathTmp = path.cloneBeginWithNextHop();
 			updateSinglePathInRIB2BeUpdate(pathTmp, ifadd);
@@ -237,7 +244,7 @@ public class updateRIB {
 		InterController.updateFlagRIB.put(nextHop, true);
 		InterController.updateRIBFlagTotal = true;	
 		
-		HandleSIMRP.printRIB2BeUpdate(InterController.RIB2BeUpdate);
+		PrintIB.printRIB2BeUpdate(InterController.RIB2BeUpdate);
 		InterController.updateRIBWriteLock = false;
 		
 		/* we do not push path OF0 in the SIMRP version 1.
