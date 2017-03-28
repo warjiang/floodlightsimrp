@@ -283,7 +283,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 					try {		
 						log.info("try to connect client{} at {} time", entry.getValue().ASnodeDest.IPperfix.IP, reconnectTime);
 						clientSocket = new Socket(entry.getValue().ASnodeDest.IPperfix.IP, serverPort);	
-						clientSocket.setSoTimeout(3000); //3s reconnect
+						clientSocket.setSoTimeout(30000); //3s reconnect
 						Time.sleep(clientReconnectInterval);
 					//	clientSocket.
 					} catch (IOException e) {

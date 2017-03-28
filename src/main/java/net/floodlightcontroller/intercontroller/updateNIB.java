@@ -2,6 +2,7 @@ package net.floodlightcontroller.intercontroller;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -30,6 +31,9 @@ public class updateNIB {
 
 	public static boolean updateNIBDeleteNeighbor(Neighbor neighbor2Bemoved){
 		boolean getNewNeighborFalg = false;
+		if(neighbor2Bemoved==null)
+			return getNewNeighborFalg;
+		
 		neighbor2Bemoved.exists = false;
 		int ASsrcNum = neighbor2Bemoved.getASnumSrc();
 		
@@ -47,8 +51,9 @@ public class updateNIB {
 			
 			getNewNeighborFalg = true;							
 		}			
-	return getNewNeighborFalg;
+		return getNewNeighborFalg;
 	}
+	
 
 	/**
 	 * add new neighbor to the NIB
@@ -124,8 +129,9 @@ public class updateNIB {
 			if(ASnum == InterController.myASnum||ASnum==ASsrcNum)
 				continue;
 			if(InterController.NIB2BeUpdate.containsKey(ASnum)){
-				if(!InterController.NIB2BeUpdate.get(ASnum).contains(newNeighbor))
-					InterController.NIB2BeUpdate.get(ASnum).add(newNeighbor); 
+				hasNeighborWithSameSrcDest(InterController.NIB2BeUpdate.get(ASnum), newNeighbor);
+			//	if(!InterController.NIB2BeUpdate.get(ASnum).contains(newNeighbor))
+			//		InterController.NIB2BeUpdate.get(ASnum).add(newNeighbor); 
 				}
 			else{
 				HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
@@ -138,6 +144,28 @@ public class updateNIB {
 		PrintIB.printNIB2BeUpdate(InterController.NIB2BeUpdate);
 		InterController.updateNIBWriteLock = false;
 	}	
+	
+	/**
+	 * update the NIB2BeUpdate list
+	 * @param tmp
+	 * @param newNeighbor
+	 * @return
+	 */
+	public static boolean hasNeighborWithSameSrcDest(HashSet<Neighbor> tmp, Neighbor newNeighbor){
+		boolean flag = false;
+		Iterator<Neighbor> nei = tmp.iterator();
+		Neighbor neighbor;
+		while(nei.hasNext()){
+			neighbor = nei.next();
+			if(neighbor.sameSrcDest(newNeighbor)){
+				tmp.remove(neighbor);
+				tmp.add(newNeighbor);
+				flag = true;
+				break;			
+			}
+		}
+		return flag;
+	}
 	
 	public static void addASnum2ASNumList(int ASNum){
 		if(!InterController.PIB.contains(ASNum) && !InterController.ASNumList.contains(ASNum))
@@ -158,7 +186,6 @@ public class updateNIB {
 	
 	public static void addASNode2ASNodeList(ASnode node){
 		if(!InterController.ASNodeList.containsKey(node.ASnum))
-			InterController.ASNodeList.put(node.ASnum, node.clone()); //only add, do not delete. as it can be a lonely AS
-			
+			InterController.ASNodeList.put(node.ASnum, node.clone()); //only add, do not delete. as it can be a lonely AS		
 	}
 }

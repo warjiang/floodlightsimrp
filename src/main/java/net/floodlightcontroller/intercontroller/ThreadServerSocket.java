@@ -52,7 +52,8 @@ public class ThreadServerSocket extends Thread{
 				if(entry.getValue().equals(s)){
 					InterController.mySockets.remove(entry.getKey());
 				//	InterController.myNeighbors.remove(entry.getKey());
-					updateNIB.updateNIBDeleteNeighbor(InterController.NIB.get(InterController.myASnum).get(entry.getKey()));
+					updateNIB.updateASnum2neighborASNumList(entry.getKey(), false);		
+					updateNIB.updateNIBDeleteNeighbor(InterController.NIB.get(InterController.myASnum).get(entry.getKey()).clone());
 					PrintIB.printNIB(InterController.NIB);
 					CreateJson.createNIBJson();
 					if(updateRIB.updateRIBFormNIB()){

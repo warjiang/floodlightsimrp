@@ -37,7 +37,7 @@ public class ASnode {
 	}
 	
 	public boolean equals(ASnode AS){
-		if(this.ASnum==(AS.ASnum) && this.IPperfix.equals(AS.IPperfix))
+		if(this.ASnum==(AS.ASnum))// && this.IPperfix.equals(AS.IPperfix))
 			return true;
 		return false;
 	}

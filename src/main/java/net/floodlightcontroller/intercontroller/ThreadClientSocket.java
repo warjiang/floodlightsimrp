@@ -43,9 +43,8 @@ public  class ThreadClientSocket extends Thread{
 					InterController.mySockets.remove(entry.getKey());					
 					//give it change to re-set the connection
 			//		InterController.myNeighbors.remove(entry.getKey()); 
-					updateNIB.updateASnum2neighborASNumList(entry.getKey(), false);
-					
-					updateNIB.updateNIBDeleteNeighbor(InterController.NIB.get(InterController.myASnum).get(entry.getKey()));
+					updateNIB.updateASnum2neighborASNumList(entry.getKey(), false);					
+					updateNIB.updateNIBDeleteNeighbor(InterController.NIB.get(InterController.myASnum).get(entry.getKey()).clone());
 					PrintIB.printNIB(InterController.NIB);
 					CreateJson.createNIBJson();
 					if(updateRIB.updateRIBFormNIB()){
@@ -117,6 +116,8 @@ public  class ThreadClientSocket extends Thread{
 						msgType = HandleSIMRP.handleMsg(msg, this.out, helloFlag, socketAddress);
 						if(msgType==(byte)0x13||msgType==(byte)0x12) //client start hello, so when 0x12 it's already OK
 							helloFlag = true;
+						else if(msgType==0x02||msgType==0x03||msgType==0x04)
+							helloFlag = false;
 						//get the keepalive TN
 						else if(msgType==0x21)
 							sendTotalNIB = false;

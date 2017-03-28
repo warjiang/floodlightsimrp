@@ -16,7 +16,7 @@ public class PrintIB {
 		}
 	}
 	public static void printNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
-			System.out.printf("NIB is:\n");
+			System.out.printf("cur NIB is:\n");
 			for(Map.Entry<Integer, Map<Integer,Neighbor>> entryA: NIB.entrySet())
 				for(Map.Entry<Integer,Neighbor> entryB: entryA.getValue().entrySet()){
 					System.out.printf("src is %s dest is %s: %s->%s\n",entryA.getKey(), entryB.getKey(),entryB.getValue().ASnodeSrc.ASnum,entryB.getValue().ASnodeDest.ASnum);			
@@ -27,7 +27,7 @@ public class PrintIB {
 		Neighbor tmp;
 		for(Map.Entry<Integer, HashSet<Neighbor>> entry:NIB2BeUpdate.entrySet()){
 			Iterator<Neighbor> nei = entry.getValue().iterator();
-			System.out.printf("NIB to be updated:\n");
+			System.out.printf("NIB need to be updated:\n");
 			while(nei.hasNext()){
 				tmp = nei.next();
 				System.out.printf("Neighbor:%s, %s->%s, exists:%s\n",entry.getKey(), tmp.getASnumSrc(), tmp.getASnumDest(), tmp.exists);
