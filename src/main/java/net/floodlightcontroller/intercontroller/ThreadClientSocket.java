@@ -83,7 +83,7 @@ public  class ThreadClientSocket extends Thread{
 					// send hello msg.
 					myMsg = EncodeData.creatHello(InterController.SIMRPVersion, InterController.holdingTime, InterController.myASnum, null, (byte)0x00);
 					// in case doWrite failed, retry 10 times
-					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "newHelloMsg", socketAddress))
+					if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "newHelloMsg", socketAddress))
 						break;		
 					timeSendHello = System.currentTimeMillis()/1000;
 				}
@@ -128,7 +128,7 @@ public  class ThreadClientSocket extends Thread{
 							if((msgType&0x04)==(byte)0x04)
 								keepaliveFlag = (byte)(keepaliveFlag|0x01);
 							myMsg = EncodeData.creatKeepalive(InterController.myASnum, InterController.keepaliveTime, keepaliveFlag );
-							if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "keepaliveTN", socketAddress))
+							if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "keepaliveTN", socketAddress))
 								break;	
 							timePre = System.currentTimeMillis()/1000;
 							//remove the TN and TR;		
@@ -138,7 +138,7 @@ public  class ThreadClientSocket extends Thread{
 						else if((msgType&0xf0)==(byte)0x40){
 							keepaliveFlag = (byte)(keepaliveFlag|0x02); //it's updateNIB so flag TR 001?
 							myMsg = EncodeData.creatKeepalive(InterController.myASnum, InterController.keepaliveTime, keepaliveFlag );
-							if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "keepaliveTR", socketAddress))
+							if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "keepaliveTR", socketAddress))
 								break;	
 							timePre = System.currentTimeMillis()/1000;
 							keepaliveFlag = (byte)(keepaliveFlag&0xf9); //remove the TN and TR;
@@ -151,7 +151,7 @@ public  class ThreadClientSocket extends Thread{
 				//send keepalive msg
 				if(helloFlag && (timeCur-timePre > InterController.keepaliveTime)){
 					myMsg = EncodeData.creatKeepalive(InterController.myASnum, InterController.keepaliveTime, keepaliveFlag );
-					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "Regular keepalive", socketAddress))
+					if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "Regular keepalive", socketAddress))
 						break;	
 					timePre = System.currentTimeMillis()/1000;
 				}
@@ -163,7 +163,7 @@ public  class ThreadClientSocket extends Thread{
 					timeFirstUpdateNIB = System.currentTimeMillis()/1000;
 					myMsg = EncodeData.creatUpdateNIB(InterController.NIB);
 					// in case doWrite failed, retry 10 times
-					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "totalNIB", socketAddress))
+					if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "totalNIB", socketAddress))
 						break;	
 					timePre = System.currentTimeMillis()/1000;
 				}
@@ -197,7 +197,7 @@ public  class ThreadClientSocket extends Thread{
 					for(Neighbor ASNeighbor: InterController.NIB2BeUpdate.get(clientASnum))
 						neighborSections[i++] = ASNeighbor;				
 					myMsg = EncodeData.creatUpdateNIB(len, neighborSections);
-					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "updateNIB", socketAddress))
+					if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "updateNIB", socketAddress))
 						break;	
 					timePre = System.currentTimeMillis()/1000;
 					InterController.NIB2BeUpdate.remove(clientASnum);
@@ -213,7 +213,7 @@ public  class ThreadClientSocket extends Thread{
 					if(InterController.RIB2BeUpdate.containsKey(clientASnum)
 							&&!InterController.RIB2BeUpdate.get(clientASnum).isEmpty()){
 						myMsg = EncodeData.creatUpdateRIB(InterController.RIB2BeUpdate.get(clientASnum));
-						if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "updateRIB", socketAddress)){
+						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "updateRIB", socketAddress)){
 							InterController.updateRIBWriteLock = false;
 							break;	
 						}

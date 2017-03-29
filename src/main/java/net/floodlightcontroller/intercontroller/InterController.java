@@ -39,6 +39,7 @@ import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.types.DatapathId;
+import org.projectfloodlight.openflow.types.OFPort;
 import org.python.modules.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,9 +77,10 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	public static int clientReconnectTimes = 20;
 	public static int clientReconnectInterval = 3;
 	public static int serverPort = 51118;
-	public static int controllerOFport = 1;
+	public static OFPort controllerOFport = OFPort.ofInt(1);
 	
-	public static int doReadRetryTimes = 5;
+	public static int doReadRetryTimes  = 2;
+	public static int doWriteRetryTimes = 2;
 	
 	public int  SERSOCK_INTERVAL_MS = 600;
 
@@ -248,13 +250,13 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 //			} 
 			
 			InterController.NIB.put(myASnum, new HashMap<Integer, Neighbor>());
-			pushOF02Switch(); // push the controller flow
+//			pushDefaultFlow2Switch();
 			startClientTask = new SingletonTask(ses, new startClientThread());
 			startClientTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
 
 			
 			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			System.out.printf("%s(%s):InterDomain started!!!\nmyASnum=%s,IP=%s\n",df.format(new Date()), myASnum,myIPstr, System.currentTimeMillis()/1000);				
+			System.out.printf("%s:%s:InterDomain started!!!\nmyASnum=%s,IP=%s\n",df.format(new Date()), myASnum,myIPstr, System.currentTimeMillis()/1000);				
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -263,6 +265,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 
 	public boolean startClient() throws JsonGenerationException, JsonMappingException, IOException{
 		boolean ifAllClientStarted = true;
+		int ASSrc  = 0;
+		int ASDest = 0;
 		if(myNeighbors==null) 
 			return ifAllClientStarted;
 		ScheduledExecutorService ses = threadPoolService.getScheduledExecutor();
@@ -275,12 +279,18 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 					PrintIB.printRIB(curRIB);
 				}
 			}
-			if(entry.getValue().ASnodeDest.ASnum > entry.getValue().ASnodeSrc.ASnum && 
-					!mySockets.containsKey(entry.getValue().ASnodeDest.ASnum)){
+			ASSrc = entry.getValue().ASnodeSrc.ASnum;
+			ASDest = entry.getValue().ASnodeDest.ASnum;
+			if(ASDest > ASSrc
+					&& !mySockets.containsKey(ASDest)){
 				Socket clientSocket = null;
 				int reconnectTime = 1;
 				while(clientSocket == null && reconnectTime<clientReconnectTimes){					
 					try {		
+					/*	if(InterController.curRIB.containsKey(ASSrc)
+								&&InterController.curRIB.get(ASSrc).containsKey(ASDest)){		
+							pushOF02Switch();
+						} */
 						log.info("try to connect client{} at {} time", entry.getValue().ASnodeDest.IPperfix.IP, reconnectTime);
 						clientSocket = new Socket(entry.getValue().ASnodeDest.IPperfix.IP, serverPort);	
 						clientSocket.setSoTimeout(30000); //3s reconnect
@@ -293,12 +303,12 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 					}
 				}
 				if(clientSocket !=null){
-					mySockets.put(entry.getValue().ASnodeDest.ASnum, clientSocket);
+					mySockets.put(ASDest, clientSocket);
 					updateNIB.updateASnum2neighborASNumList(entry.getKey(), true);
 					
 					this.clientSocketTask = new SingletonTask(ses, new clientSocketThread(clientSocket));	
 					this.clientSocketTask.reschedule(SERSOCK_INTERVAL_MS, TimeUnit.MILLISECONDS);
-					this.clientSocketTasks.put(entry.getValue().ASnodeDest.ASnum, clientSocketTask);
+					this.clientSocketTasks.put(ASDest, clientSocketTask);
 				}
 				else {
 					ifAllClientStarted = false;
@@ -312,8 +322,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 						}
 				}
 			}
-			else if(entry.getValue().ASnodeDest.ASnum == entry.getValue().ASnodeSrc.ASnum)
-				System.out.printf("Error Same ASnum error!!!, the ASnum is %s", entry.getValue().ASnodeSrc.ASnum);			
+			else if(ASDest == ASSrc)
+				System.out.printf("Error Same ASnum error!!!, the ASnum is %s", ASSrc);			
 		} 
 		return ifAllClientStarted;
 	}
@@ -428,7 +438,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		//if you configure it in the configASAddress, the Neighbor.outSwitch is the fit dpid here.
 		Set<DatapathId> swDpIds = null;
 		DatapathId dpid = null; 
-		swDpIds = switchService.getAllSwitchDpids();
+		swDpIds = InterController.switchService.getAllSwitchDpids();
 		while(swDpIds.isEmpty()){
 			Time.sleep(2);
 			swDpIds = switchService.getAllSwitchDpids();
@@ -439,7 +449,42 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 			dpid = it.next();
 			IOFSwitch sw = switchService.getSwitch(dpid);
 			Routing.pushRoute(sw, null, null, (byte)0x10); 
-			//Routing.pushBestPath2Switch(InterController.curRIB.get(myASnum), sw);
+			if(InterController.curRIB.containsKey(myASnum))
+				Routing.pushBestPath2Switch(InterController.curRIB.get(myASnum), sw);
+		}
+	}
+	
+	public static void pushSinglePath2Switch(ASpath path){
+		Set<DatapathId> swDpIds = null;
+		DatapathId dpid = null; 
+		swDpIds = InterController.switchService.getAllSwitchDpids();
+		while(swDpIds.isEmpty()){
+			Time.sleep(2);
+			swDpIds = InterController.switchService.getAllSwitchDpids();
+			System.out.printf("!!no switch is connected, need to wait for another 2s!\n");
+		}	
+		Iterator<DatapathId> it = swDpIds.iterator();
+		while(it.hasNext()){
+			dpid = it.next();
+			IOFSwitch sw = InterController.switchService.getSwitch(dpid);
+			Routing.pushPath2Switch(path, sw);
+		}
+	}
+	
+	public static void pushDefaultFlow2Switch(){
+		Set<DatapathId> swDpIds = null;
+		DatapathId dpid = null; 
+		swDpIds = InterController.switchService.getAllSwitchDpids();
+		while(swDpIds.isEmpty()){
+			Time.sleep(2);
+			swDpIds = InterController.switchService.getAllSwitchDpids();
+			System.out.printf("!!no switch is connected, need to wait for another 2s!\n");
+		}
+		Iterator<DatapathId> it = swDpIds.iterator();
+		while(it.hasNext()){
+			dpid = it.next();
+			IOFSwitch sw = InterController.switchService.getSwitch(dpid);
+			Routing.pushDefaultRoute2Switch(sw);
 		}
 	}
 	
@@ -516,22 +561,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		return ASnum;
 	}
 	
-	public static void pushSinglePath2Switch(ASpath path){
-		Set<DatapathId> swDpIds = null;
-		DatapathId dpid = null; 
-		swDpIds = InterController.switchService.getAllSwitchDpids();
-		Iterator<DatapathId> it = swDpIds.iterator();
-		while(it.hasNext()){
-			dpid = it.next();
-			IOFSwitch sw = InterController.switchService.getSwitch(dpid);
-			try {
-				Routing.pushPath2Switch(path, sw);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-	}
+
 
 }
 

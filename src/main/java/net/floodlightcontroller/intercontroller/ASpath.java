@@ -90,8 +90,7 @@ public class ASpath {
 	public int getNextHop(){
 		int nextHop = 0;
 		if(!this.pathNode.isEmpty())
-			nextHop = this.pathNode.getFirst();	
-		
+			nextHop = this.pathNode.getFirst();		
 		return nextHop;
 	}
 	

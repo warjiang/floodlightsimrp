@@ -117,17 +117,25 @@ public class ThreadServerSocket extends Thread{
 						//distinguish msg
 						if(msgType==(byte)0x13) // the other side is ready
 							helloFlag = true;
+						
+						//server is not ready but client start to send the msg, should be killed
+						else if(msgType==0x02||msgType==0x03||msgType==0x04)
+							socketAliveFlag = false; //kill the socket, client will restart the connection
+						
 						else if(msgType==0x21)
 							sendTotalNIB = false;
+						
 						else if((msgType&0xf0)==(byte)0x30){ //get updateNIB msg
 							//it's updateNIB so flag TN 010?
 							keepaliveFlag = (byte)(keepaliveFlag|0x04); 
 							if((msgType&0x04)==(byte)0x04) 
 								keepaliveFlag = (byte)(keepaliveFlag|0x01);
-							myMsg = EncodeData.creatKeepalive(InterController.myASnum, InterController.keepaliveTime, keepaliveFlag );
-							if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "keepaliveTN", socketAddress))
-								break;	
+							
+							myMsg = EncodeData.creatKeepalive(InterController.myASnum, InterController.keepaliveTime, keepaliveFlag );							
+							if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "keepaliveTN", socketAddress))
+								break;								
 							timePre = System.currentTimeMillis()/1000;
+							
 							//remove the TN and TR;	
 							keepaliveFlag = (byte)(keepaliveFlag&0xf9); 			
 						}
@@ -135,9 +143,10 @@ public class ThreadServerSocket extends Thread{
 							//it's updateNIB so flag TR 001?
 							keepaliveFlag = (byte)(keepaliveFlag|0x02); 
 							myMsg = EncodeData.creatKeepalive(InterController.myASnum, InterController.keepaliveTime, keepaliveFlag );
-							if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "keepaliveTR", socketAddress))
+							if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "keepaliveTR", socketAddress))
 								break;	
 							timePre = System.currentTimeMillis()/1000;
+							
 							//remove the TN and TR;
 							keepaliveFlag = (byte)(keepaliveFlag&0xf9); 
 						}
@@ -149,7 +158,7 @@ public class ThreadServerSocket extends Thread{
 				//send keepalive msg
 				if(helloFlag && (timeCur-timePre > InterController.keepaliveTime)){
 					myMsg = EncodeData.creatKeepalive(InterController.myASnum, InterController.keepaliveTime, keepaliveFlag );
-					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 11, "Regular keepalive", socketAddress))
+					if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "Regular keepalive", socketAddress))
 						break;					
 					timePre = System.currentTimeMillis()/1000;
 				}
@@ -160,7 +169,7 @@ public class ThreadServerSocket extends Thread{
 						&& (timeCur-timeFirstUpdateNIB >InterController.sendUpdateNIBDuration)){
 					timeFirstUpdateNIB = System.currentTimeMillis()/1000;
 					myMsg = EncodeData.creatUpdateNIB(InterController.NIB);
-					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "totalNIB", socketAddress))
+					if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "totalNIB", socketAddress))
 						break;	
 					timePre = System.currentTimeMillis()/1000;
 				}
@@ -193,7 +202,7 @@ public class ThreadServerSocket extends Thread{
 					for(Neighbor ASNeighbor: InterController.NIB2BeUpdate.get(clientASnum))
 						neighborSections[i++] = ASNeighbor;				
 					myMsg = EncodeData.creatUpdateNIB(len, neighborSections); //update single AS's NIB
-					if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "updateNIB", socketAddress)){
+					if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "updateNIB", socketAddress)){
 						InterController.updateNIBWriteLock = false;
 						break;	
 					}
@@ -214,7 +223,7 @@ public class ThreadServerSocket extends Thread{
 					if(InterController.RIB2BeUpdate.containsKey(clientASnum)
 							&&!InterController.RIB2BeUpdate.get(clientASnum).isEmpty()){
 						myMsg = EncodeData.creatUpdateRIB(InterController.RIB2BeUpdate.get(clientASnum));
-						if(!HandleSIMRP.doWirteNtimes(out, myMsg, 5, "updateRIB", socketAddress)){
+						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "updateRIB", socketAddress)){
 							InterController.updateRIBWriteLock = false;
 							break;	
 						}

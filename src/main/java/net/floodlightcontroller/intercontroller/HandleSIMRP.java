@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.LinkedList;
 
-import org.python.modules.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +26,7 @@ public class HandleSIMRP {
 		// get hello+yes 
 		if(msg[len-3]==(byte)0x01){	
 			msg[len-3] = (byte) 0x03;
-			if(!HandleSIMRP.doWirteNtimes(out, msg, 11, "hello0x01->0x03", socketAddress))
+			if(!HandleSIMRP.doWirteNtimes(out, msg, InterController.doWriteRetryTimes, "hello0x01->0x03", socketAddress))
 				return 0x01;	
 			return 0x12;  //other side is OK
 		}
@@ -37,14 +36,14 @@ public class HandleSIMRP {
 		
 		//in this demo, no false hello, all use SIMRP1.0
 		msg[len-3] = (byte) (msg[len-3]|(byte)0x01);
-		if(!HandleSIMRP.doWirteNtimes(out, msg, 11, "hello0x00->0x01", socketAddress))
+		if(!HandleSIMRP.doWirteNtimes(out, msg, InterController.doWriteRetryTimes, "hello0x00->0x01", socketAddress))
 			return 0x01;	
 		return 0x11; //my side is ok
 	}
 	
 	public static byte handleKeepalive(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress){
 		if(!HelloFlag){
-			System.out.println("HelloFlag=False(Keepalive)");
+			System.out.printf("%s:%s:HelloFlag=False(Keepalive)", socketAddress, System.currentTimeMillis()/1000);
 			return 0x02;
 		}
 		
@@ -66,7 +65,7 @@ public class HandleSIMRP {
 		
 	public static byte handleUpdataNIB(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) {
 		if(!HelloFlag){
-			System.out.println("HelloFlag=False(UpdateNIB)");
+			System.out.printf("%s:%s:HelloFlag=False(UpdateNIB)", socketAddress, System.currentTimeMillis()/1000);
 			return 0x03;
 		}
 		int len = msg.length;
@@ -102,7 +101,7 @@ public class HandleSIMRP {
 	
 	public static byte handleUpdateRIB(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) {
 		if(!HelloFlag){
-			System.out.printf("%s:HelloFlag=False(UpdateRIB)\n", socketAddress);
+			System.out.printf("%s:%s:HelloFlag=False(UpdateRIB)\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x04;
 		}
 		if(msg.length<12)
@@ -186,7 +185,6 @@ public class HandleSIMRP {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			System.out.printf("%s:doWrite error, socket stop\n",socketAddress);
-			Time.sleep(1);
 			return false;
 		//	e.printStackTrace();
 		}
@@ -201,7 +199,7 @@ public class HandleSIMRP {
 			reWriteTimes ++ ;
 			doWriteFlag = HandleSIMRP.doWrite(out,msgOut,socketAddress);							
 		}
-		if(!doWriteFlag&&reWriteTimes>10){
+		if(!doWriteFlag&&reWriteTimes>=Ntimes){
 			log.info("doWrite failed. Socket may stop, need reconnnect");
 			return false;
 		}

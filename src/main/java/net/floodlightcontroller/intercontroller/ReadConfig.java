@@ -174,7 +174,7 @@ public class ReadConfig {
 		if(conf.containsKey("clientReconnectInterval")) InterController.clientReconnectInterval = conf.get("clientReconnectInterval");
 		if(conf.containsKey("serverPort")) InterController.serverPort = conf.get("serverPort");
 		if(conf.containsKey("PIBNo")) InterController.PIB.add(conf.get("PIBNo"));
-		if(conf.containsKey("controllerOFport")) InterController.controllerOFport = conf.get("controllerOFport");
+		if(conf.containsKey("controllerOFport")) InterController.controllerOFport = OFPort.ofInt(conf.get("controllerOFport"));
 		return true;
 	}
 
