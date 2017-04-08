@@ -18,7 +18,8 @@ public class Neighbor{
 	public DatapathId inSwitch; 
 	public SectionAttri attribute;
 	public int delay;  //delay = latency(ms) + 8000*confSizeMB/bandwidth (MB/Mbps)
-	public boolean exists = true;  //true can be used, false deleted; 0x00 add, 0x40 delete, 0x80 modify
+	public boolean exists  = true;  //true can be used, false deleted; 0x00 add, 0x40 delete, 0x80 modify
+	public boolean started = false; //true if the connection has been started
 	
 	public Neighbor(){
 		this.ASnodeDest = new ASnode();
@@ -26,6 +27,7 @@ public class Neighbor{
 		this.attribute  = new SectionAttri();
 		this.delay      = Integer.MAX_VALUE;	
 		this.exists     = true; 
+		this.started    = false;
 	}
 	
 	//maybe need check
@@ -39,7 +41,8 @@ public class Neighbor{
 		res.inSwitch   = this.inSwitch;
 		res.attribute  = this.attribute.clone();
 		res.delay      = this.delay;
-		res.exists       = this.exists;   
+		res.exists     = this.exists;   
+		res.started    = this.started;
 		return res;
 	}
 	
@@ -120,7 +123,9 @@ public class Neighbor{
 				&& this.ASnodeDest.equals(AS.ASnodeDest) 
 				&& this.inPort.equals(AS.inPort) 
 				&& this.inSwitch.equals(AS.inSwitch)
-				&& this.attribute.equals(AS.attribute))
+				&& this.attribute.equals(AS.attribute)
+				&& this.started == AS.started
+				&& this.exists  == AS.exists)
 			return true;
 		return false;
 	}	

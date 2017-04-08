@@ -9,14 +9,13 @@ import java.util.Map;
  * @author xftony
  */
 public class updateNIB {
-	public static boolean updateNIBFromNIBMsg(byte[] msg){
+	public static boolean updateNIBFromNIBMsg(byte[] msg, String socketAddress){
 		boolean getNewNeighborFalg = false;
 		int len = DecodeData.byte2Int(msg,12); //neighbor list len		
 		//	Map<Integer, Neighbor> tmpNeighbors = new HashMap<Integer, Neighbor> ();
-		Neighbor[] newNeighbors = new Neighbor[len];
+		Neighbor[] newNeighbors = new Neighbor[len];	
 		for(int i=0; i< len; i++){
-			newNeighbors[i] = DecodeData.byte2Neighbor(msg,16 + 48*i);	
-			PrintIB.printNeighbor(newNeighbors[i]);
+			newNeighbors[i] = DecodeData.byte2Neighbor(msg,16 + 48*i);			
 			
 			if(!newNeighbors[i].exists) //the neighbor need to be deleted
 				getNewNeighborFalg = updateNIBDeleteNeighbor(newNeighbors[i]) || getNewNeighborFalg ;		
@@ -26,15 +25,23 @@ public class updateNIB {
 						
 			}
 		}
+		String str = "***************Get new nei from " + socketAddress;
+		PrintIB.printNeighbor(newNeighbors, str);
+		
+	//	PrintIB.printNIB2BeUpdate(InterController.NIB2BeUpdate);
 		return getNewNeighborFalg;
 	}
 
+	/**
+	 * remove the link myNode->removedNode
+	 */
 	public static boolean updateNIBDeleteNeighbor(Neighbor neighbor2Bemoved){
 		boolean getNewNeighborFalg = false;
 		if(neighbor2Bemoved==null)
 			return getNewNeighborFalg;
 		
-		neighbor2Bemoved.exists = false;
+		neighbor2Bemoved.exists  = false;
+		neighbor2Bemoved.started = false;
 		int ASsrcNum = neighbor2Bemoved.getASnumSrc();
 		
 		if (InterController.NIB.containsKey(ASsrcNum)&&
@@ -43,7 +50,10 @@ public class updateNIB {
 				;
 			}
 			InterController.NIBWriteLock = true; //lock NIB
-			InterController.NIB.get(ASsrcNum).remove(neighbor2Bemoved.getASnumDest());
+			if(InterController.myASNum == ASsrcNum)
+				InterController.NIB.get(ASsrcNum).get(neighbor2Bemoved.getASnumDest()).started = false;
+			else
+				InterController.NIB.get(ASsrcNum).remove(neighbor2Bemoved.getASnumDest());
 			InterController.NIBWriteLock = false; //unlock NIB
 			
 			InterController.neighborASNumList.remove(neighbor2Bemoved.getASnumDest());
@@ -54,6 +64,55 @@ public class updateNIB {
 		return getNewNeighborFalg;
 	}
 	
+	/**
+	 * remove the link myNode->removedNode and removedNode->myNode
+	 * @param neighbor2Bemoved
+	 * @return
+	 */
+	public static boolean updateNIBDeleteNeighborBilateral(Neighbor neighbor2Bemoved){
+		boolean getNewNeighborFalg = false;
+		if(neighbor2Bemoved==null)
+			return getNewNeighborFalg;
+		
+		neighbor2Bemoved.exists  = false;
+		neighbor2Bemoved.started = false;
+		int ASSrcNum  = neighbor2Bemoved.getASnumSrc();
+		int ASDestNum = neighbor2Bemoved.getASnumDest();
+		
+		if (InterController.NIB.containsKey(ASSrcNum)&&
+				InterController.NIB.get(ASSrcNum).containsKey(ASDestNum)){
+			while(InterController.NIBWriteLock ){
+				;
+			}
+			InterController.NIBWriteLock = true; //lock NIB
+			if(InterController.myASNum == ASSrcNum)
+				InterController.NIB.get(ASSrcNum).get(ASDestNum).started = false;
+			else
+				InterController.NIB.get(ASSrcNum).remove(ASDestNum);
+			InterController.NIBWriteLock = false; //unlock NIB
+			
+			InterController.neighborASNumList.remove(ASDestNum);
+			updateNIB2BeUpdate(neighbor2Bemoved, false);
+			
+			getNewNeighborFalg = true;							
+		}	
+		
+		if (InterController.NIB.containsKey(ASDestNum)&&
+				InterController.NIB.get(ASDestNum).containsKey(ASSrcNum)){
+			while(InterController.NIBWriteLock ){
+				;
+			}
+			InterController.NIBWriteLock = true; //lock NIB
+			InterController.NIB.get(ASDestNum).remove(ASSrcNum);
+			InterController.NIBWriteLock = false; //unlock NIB
+			
+			InterController.neighborASNumList.remove(neighbor2Bemoved.getASnumDest());
+			updateNIB2BeUpdate(neighbor2Bemoved, false);			
+			getNewNeighborFalg = true;							
+		}
+		
+		return getNewNeighborFalg;
+	}
 
 	/**
 	 * add new neighbor to the NIB
@@ -116,32 +175,39 @@ public class updateNIB {
 	 * @param ifadd  true add; false delete
 	 */
 	public static void updateNIB2BeUpdate(Neighbor newNeighbor, boolean ifadd){
+		if(newNeighbor==null)
+			return;
 		int ASsrcNum = newNeighbor.getASnumSrc();
+		// the add the new neighbor, the link should be started
+		if(ifadd && newNeighbor.started==false) 
+			return;
 		
 		newNeighbor.exists = ifadd;
-		
+
 		while(InterController.updateNIBWriteLock){
 			;
 		}
 		InterController.updateNIBWriteLock = true;
 			
-		for(int ASnum : InterController.neighborASNumList){
-			if(ASnum == InterController.myASnum||ASnum==ASsrcNum)
+		for(int ASNum : InterController.neighborASNumList){
+			if(ASNum == InterController.myASNum||ASNum==ASsrcNum)
 				continue;
-			if(InterController.NIB2BeUpdate.containsKey(ASnum)){
-				hasNeighborWithSameSrcDest(InterController.NIB2BeUpdate.get(ASnum), newNeighbor);
+			if(InterController.NIB2BeUpdate.containsKey(ASNum)){
+				add2TheUpdateListForNeighbor(ASNum, newNeighbor);
 			//	if(!InterController.NIB2BeUpdate.get(ASnum).contains(newNeighbor))
 			//		InterController.NIB2BeUpdate.get(ASnum).add(newNeighbor); 
 				}
 			else{
 				HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
-				tmpHashSet.add(newNeighbor);
-				InterController.NIB2BeUpdate.put(ASnum, tmpHashSet);
+				tmpHashSet.add(newNeighbor.clone());
+				InterController.NIB2BeUpdate.put(ASNum, tmpHashSet);
 			}
-			InterController.updateFlagNIB.put(ASnum, true);	
+		//	InterController.updateFlagNIB.remove(ASNum);	
+			InterController.updateFlagNIB.put(ASNum, true);	
 			InterController.updateNIBFlagTotal = true;	
 		}
-		PrintIB.printNIB2BeUpdate(InterController.NIB2BeUpdate);
+
+	//	PrintIB.printNIB2BeUpdate(InterController.NIB2BeUpdate);
 		InterController.updateNIBWriteLock = false;
 	}	
 	
@@ -151,36 +217,49 @@ public class updateNIB {
 	 * @param newNeighbor
 	 * @return
 	 */
-	public static boolean hasNeighborWithSameSrcDest(HashSet<Neighbor> tmp, Neighbor newNeighbor){
-		boolean flag = false;
-		Iterator<Neighbor> nei = tmp.iterator();
+	public static boolean add2TheUpdateListForNeighbor(int ASNum, Neighbor newNeighbor){
+		boolean flag = true;
+		Iterator<Neighbor> nei = InterController.NIB2BeUpdate.get(ASNum).iterator();
 		Neighbor neighbor;
 		while(nei.hasNext()){
 			neighbor = nei.next();
 			if(neighbor.sameSrcDest(newNeighbor)){
-				tmp.remove(neighbor);
-				tmp.add(newNeighbor);
+				InterController.NIB2BeUpdate.get(ASNum).remove(neighbor);
+				InterController.NIB2BeUpdate.get(ASNum).add(newNeighbor.clone());
+		//		PrintIB.printNeighbor(newNeighbor, "*************************Replaced");
 				flag = true;
-				break;			
+				return flag;			
 			}
 		}
+		InterController.NIB2BeUpdate.get(ASNum).add(newNeighbor.clone());
+	//	String str = "**********************"+ ASNum +"Added" ; 
+	//	PrintIB.printNeighbor(newNeighbor, str);
 		return flag;
+		
 	}
 	
 	public static void addASnum2ASNumList(int ASNum){
 		if(!InterController.PIB.contains(ASNum) && !InterController.ASNumList.contains(ASNum))
 			InterController.ASNumList.add(ASNum);//only add, do not delete. as it can be a lonely AS
+	//	String str = "***********Add"+ ASNum + " to ASNumList";
+	//	PrintIB.printNodeList(InterController.ASNumList, str);	
 	}
 	
 	public static void updateASnum2neighborASNumList(int ASNum, boolean ifadd){
+		String str;
 		if(ifadd){
 			if(!InterController.PIB.contains(ASNum) 
 					&& InterController.myNeighbors.containsKey(ASNum)
-					&& !InterController.neighborASNumList.contains(ASNum))
+					&& !InterController.neighborASNumList.contains(ASNum)){
 				InterController.neighborASNumList.add(ASNum);
+	//			str = "********************Add node" + ASNum + " neighborASNumList:";
+	//			PrintIB.printNodeList(InterController.neighborASNumList, str);	
+			}
 		}
 		else if(InterController.neighborASNumList.contains(ASNum)){
 			InterController.neighborASNumList.remove(ASNum);
+	//		str = "****************Remove node" + ASNum + " neighborASNumList:";
+	//		PrintIB.printNodeList(InterController.neighborASNumList, str);	
 		}
 	}
 	

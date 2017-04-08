@@ -372,6 +372,8 @@ public class EncodeData {
 	 */
 	public static byte[] creatUpdateNIB(Neighbor neighborSection){
 		int len = 4*3 + 4*1 + 48 + 4;
+		if(!neighborSection.started)
+			return null;
 		byte[] update = new byte[len];
 		byte[] tmp;
 		
@@ -425,7 +427,12 @@ public class EncodeData {
 	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
 		int listLen = 0;
 		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
-			listLen += entryA.getValue().size();
+			for(Map.Entry<Integer,Neighbor> entryB : entryA.getValue().entrySet()){
+				if(entryB.getValue().started)
+					listLen += 1;
+			}
+		if(listLen == 0)	
+			return null;
 		
 		int len = 4*3 + 4*1 + listLen*48 + 4;
 		byte[] update = new byte[len];
@@ -448,6 +455,8 @@ public class EncodeData {
 		int i = 0;
 		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
 			for(Map.Entry<Integer,Neighbor> entryB : entryA.getValue().entrySet() ) {
+				if(!entryB.getValue().started)
+					continue;
 				tmp = neighborSection2Byte(entryB.getValue());
 				for(int j=0; j<48; j++)
 					update[16+ 48 *i+j] = tmp[j];

@@ -139,7 +139,7 @@ public class ReadConfig {
 					if(tmpStrSplitA[0]=="PIBNo"){
 						tmpStrSplitB = tmpStrSplitA[1].split(" ");
 						for(int i=0; i<tmpStrSplitB.length; i++){
-							if(Integer.parseInt(tmpStrSplitA[i])!=InterController.myASnum)
+							if(Integer.parseInt(tmpStrSplitA[i])!=InterController.myASNum)
 								InterController.PIB.add(Integer.parseInt(tmpStrSplitA[i]));
 							else
 								System.out.printf("!!!!%s is local AS, can not be banned", Integer.parseInt(tmpStrSplitA[i]));
@@ -172,7 +172,8 @@ public class ReadConfig {
 		if(conf.containsKey("FLOWMOD_DEFAULT_HARD_TIMEOUT")) InterController.FLOWMOD_DEFAULT_HARD_TIMEOUT = conf.get("FLOWMOD_DEFAULT_HARD_TIMEOUT");
 		if(conf.containsKey("clientReconnectTimes")) InterController.clientReconnectTimes = conf.get("clientReconnectTimes");
 		if(conf.containsKey("clientReconnectInterval")) InterController.clientReconnectInterval = conf.get("clientReconnectInterval");
-		if(conf.containsKey("serverPort")) InterController.serverPort = conf.get("serverPort");
+		if(conf.containsKey("startClientInterval")) InterController.startClientInterval = conf.get("startClientInterval");
+		if(conf.containsKey("serverPort")) InterController.serverPort = conf.get("serverPort");	
 		if(conf.containsKey("PIBNo")) InterController.PIB.add(conf.get("PIBNo"));
 		if(conf.containsKey("controllerOFport")) InterController.controllerOFport = OFPort.ofInt(conf.get("controllerOFport"));
 		return true;

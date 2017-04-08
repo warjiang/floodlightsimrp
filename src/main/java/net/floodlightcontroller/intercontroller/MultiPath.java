@@ -55,7 +55,8 @@ public class MultiPath {
 				open.add(ASnodeNum);
 			else 
 				close.add(ASnumSrc);
-			if(NIB.containsKey(ASnumSrc) && NIB.get(ASnumSrc).containsKey(ASnodeNum)){
+			if(NIB.containsKey(ASnumSrc) && NIB.get(ASnumSrc).containsKey(ASnodeNum) 
+					&& NIB.get(ASnumSrc).get(ASnodeNum).started){
 				delayMap.put(ASnodeNum, NIB.get(ASnumSrc).get(ASnodeNum).attribute);
 				perviousNode.put(ASnodeNum, ASnumSrc);	
 			}
@@ -95,8 +96,8 @@ public class MultiPath {
 		for(Integer nodeOpen : open){			
 			for(Integer nodeClose :close){
 				if(NIB.containsKey(nodeClose) && NIB.get(nodeClose).containsKey(nodeOpen) 
-						&& NIB.get(nodeClose).get(nodeOpen).getBandwidth()>0){	
-					
+						&& NIB.get(nodeClose).get(nodeOpen).started
+						&& NIB.get(nodeClose).get(nodeOpen).getBandwidth()>0){			
 					tmpLatency   = this.delayMap.get(nodeClose).latency + NIB.get(nodeClose).get(nodeOpen).getLatency();
 	        		tmpBandwidth = this.delayMap.get(nodeClose).bandwidth < NIB.get(nodeClose).get(nodeOpen).getBandwidth()?
 							delayMap.get(nodeClose).bandwidth : NIB.get(nodeClose).get(nodeOpen).getBandwidth();

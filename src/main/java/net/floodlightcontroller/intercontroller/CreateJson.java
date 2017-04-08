@@ -27,12 +27,15 @@ public class CreateJson {
 			mapper.writeValue(file, InterController.NIB);
 		} catch (JsonGenerationException e) {
 			// TODO Auto-generated catch block
+			InterController.NIBWriteLock = false;
 			e.printStackTrace();
 		} catch (JsonMappingException e) {
 			// TODO Auto-generated catch block
+			InterController.NIBWriteLock = false;
 			e.printStackTrace();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
+			InterController.NIBWriteLock = false;
 			e.printStackTrace();
 		}  	
 		InterController.NIBWriteLock = false; //lock NIB
@@ -62,6 +65,7 @@ public class CreateJson {
 			mapper.writeValue(file, InterController.curRIB);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
+			InterController.RIBWriteLock = false;
 			e.printStackTrace();
 		}  
 		InterController.RIBWriteLock = false; //unlock RIB
@@ -86,12 +90,15 @@ public class CreateJson {
 			mapper.writeValue(file, InterController.PIB);
 		} catch (JsonGenerationException e) {
 			// TODO Auto-generated catch block
+			InterController.PIBWriteLock = false;
 			e.printStackTrace();
 		} catch (JsonMappingException e) {
 			// TODO Auto-generated catch block
+			InterController.PIBWriteLock = false;
 			e.printStackTrace();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
+			InterController.PIBWriteLock = false;
 			e.printStackTrace();
 		}  
 		InterController.PIBWriteLock = false; //unlock PIB			

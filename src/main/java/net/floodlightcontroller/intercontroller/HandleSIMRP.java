@@ -47,8 +47,8 @@ public class HandleSIMRP {
 			return 0x02;
 		}
 		
-		if((msg[msg.length-3]&0x01)==0x01){
-			System.out.printf("%s:%s:Get Keepalive regular Msg\n", socketAddress, System.currentTimeMillis()/1000);
+		if((msg[msg.length-3]&0x01)==0x01){//
+			System.out.printf("%s:%s:Get Keepalive regular Msg: 101\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x21;	
 		}		
 		else if((msg[msg.length-3]&0x02)==0x02){
@@ -59,7 +59,7 @@ public class HandleSIMRP {
 			System.out.printf("%s:%s:Get KeepaliveTN Msg\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x23;	
 		}	
-		System.out.printf("%s:%s:Get Keepalive Msg, no totalNIB\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:%s:Get Keepalive Msg: 000, no totalNIB\n", socketAddress, System.currentTimeMillis()/1000);
 		return 0x20;
 	}
 		
@@ -74,20 +74,20 @@ public class HandleSIMRP {
 		byte firstMsgFlag = 0x00; //if the first NIB msg or not. 	
 		if((msg[len-3]&0x01)==0x01){
 			firstMsgFlag = 0x04; // yes it's the total NIB
-			System.out.printf("%s:%s:Get UpdataNIB Msg with total NIB\n",socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:*******Get UpdataNIB Msg with total NIB*******\n",socketAddress, System.currentTimeMillis()/1000);
 		}
 		else
-			System.out.printf("%s:%s:Get UpdataNIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:*******Get UpdataNIB Msg*******\n", socketAddress, System.currentTimeMillis()/1000);
 		boolean getNewNeighborFlag = false;
 		boolean getNewRIBFlag = false;
-		getNewNeighborFlag = updateNIB.updateNIBFromNIBMsg(msg);
+		getNewNeighborFlag = updateNIB.updateNIBFromNIBMsg(msg, socketAddress);
 		if(getNewNeighborFlag){
-			System.out.printf("%sNIB.JON update\n", InterController.myIPstr);
+			System.out.printf("%sNIB.JON update by %s\n", InterController.myIPstr, socketAddress);
 			CreateJson.createNIBJson();
 			PrintIB.printNIB(InterController.NIB);		//for test
 			getNewRIBFlag = updateRIB.updateRIBFormNIB();
 			if(getNewRIBFlag){
-				System.out.printf("%sRIB.JON update\n", InterController.myIPstr);
+				System.out.printf("%sRIB.JON update by %s\n", InterController.myIPstr, socketAddress);
 				CreateJson.createRIBJson();
 				PrintIB.printRIB(InterController.curRIB);
 			}	
@@ -96,7 +96,8 @@ public class HandleSIMRP {
 			return (byte)(0x32|firstMsgFlag);	
 		if(getNewNeighborFlag&&!getNewRIBFlag)
 			return (byte)(0x31|firstMsgFlag);	
-		return (byte)(0x31|firstMsgFlag);
+		
+		return (byte)(0x30|firstMsgFlag);
 	}
 	
 	public static byte handleUpdateRIB(byte[] msg, OutputStream out, boolean HelloFlag, String socketAddress) {
@@ -107,7 +108,7 @@ public class HandleSIMRP {
 		if(msg.length<12)
 			return 0x00; //it should not happen
 		boolean getNewRIBFlag = false;
-		System.out.printf("%s:%s:Get UpdataRIB Msg\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:%s:*******Get UpdataRIB Msg*******\n", socketAddress, System.currentTimeMillis()/1000);
 		int pathNum = DecodeData.byte2Int(msg,12);
 		//read the RIBpath in the msg
 		int index = 16;
@@ -130,7 +131,7 @@ public class HandleSIMRP {
 			ASpaths.add(path);
 			index += 8 + path.len*2;
 		}
-		getNewRIBFlag = updateRIB.updateRIBFormRIBMsg(ASpaths);
+		getNewRIBFlag = updateRIB.updateRIBFormRIBMsg(ASpaths, socketAddress);
 		
 		if(getNewRIBFlag){
 			System.out.printf("%sRIB.JON update\n", InterController.myIPstr);

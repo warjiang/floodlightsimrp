@@ -43,9 +43,9 @@ public class Routing {
 	 * @return ASpath
 	 * @author xftony
 	 */
-	public static ASpath getRoutingPath(int ASnumSrc, int ASnumDest){
+	public static ASpath getRoutingPath(int ASNumSrc, int ASNumDest){
 		ASpath path = null;
-		if(ASnumSrc==ASnumDest) //it's not interDomain problem
+		if(ASNumSrc==ASNumDest) //it's not interDomain problem
 			return path;
 		int pathKey = 0;
 		int pathNum = InterController.maxPathNum; //use to reduce the circulation
@@ -53,26 +53,55 @@ public class Routing {
 			;
 		}
 		InterController.RIBWriteLock = true;
-		if(InterController.curRIB.containsKey(ASnumSrc)&&
-				InterController.curRIB.get(ASnumSrc).containsKey(ASnumDest)){	//if true there may be a path.		
+		if(InterController.curRIB.containsKey(ASNumSrc)&&
+				InterController.curRIB.get(ASNumSrc).containsKey(ASNumDest)){	//if true there may be a path.		
 			for(pathKey=0; pathKey< pathNum; pathKey++){ //find the best unused path 
-				if(InterController.curRIB.get(ASnumSrc).get(ASnumDest).containsKey(pathKey))
-					if(!InterController.curRIB.get(ASnumSrc).get(ASnumDest).get(pathKey).inuse){
-						InterController.curRIB.get(ASnumSrc).get(ASnumDest).get(pathKey).inuse = true;
-						path = InterController.curRIB.get(ASnumSrc).get(ASnumDest).get(pathKey).clone();
+				if(InterController.curRIB.get(ASNumSrc).get(ASNumDest).containsKey(pathKey))
+					if(!InterController.curRIB.get(ASNumSrc).get(ASNumDest).get(pathKey).inuse){
+						InterController.curRIB.get(ASNumSrc).get(ASNumDest).get(pathKey).inuse = true;
+						path = InterController.curRIB.get(ASNumSrc).get(ASNumDest).get(pathKey).clone();
 						break;
 					}
-			}//while
+			}//for
 			if(path==null){ //make all the path unused but the choosen one
-				for(pathKey=1; pathKey< pathNum; pathKey++)
-					if(InterController.curRIB.get(ASnumSrc).get(ASnumDest).containsKey(pathKey)){
+				for(pathKey=0; pathKey< pathNum; pathKey++)
+					if(InterController.curRIB.get(ASNumSrc).get(ASNumDest).containsKey(pathKey)){
 						if(path==null)
-							path = InterController.curRIB.get(ASnumSrc).get(ASnumDest).get(pathKey).clone();	
-						InterController.curRIB.get(ASnumSrc).get(ASnumDest).get(pathKey).inuse = false;
+							path = InterController.curRIB.get(ASNumSrc).get(ASNumDest).get(pathKey).clone();	
+						InterController.curRIB.get(ASNumSrc).get(ASNumDest).get(pathKey).inuse = false;
 					}
 			}
 		}
 		InterController.RIBWriteLock = false;
+		return path;
+	}
+	
+	public static ASpath getRoutingPathFromNIB(int ASNumSrc, int ASNumDest){
+		ASpath path = null;
+		if(ASNumSrc==ASNumDest) //it's not interDomain problem
+			return path;
+		if(ASNumDest == InterController.myASNum){ //it should be done by forwarding, but forwarding is stupid ==
+			path = new ASpath();
+			path.src  = ASNumSrc;
+			path.dest = ASNumDest;
+			path.pathNode.add(path.dest);	
+			return path;		
+		}
+		if(ASNumSrc != InterController.myASNum) //it should not use NIB
+			return path;
+		while(InterController.NIBWriteLock){
+			;
+		}
+		InterController.NIBWriteLock = true;
+		if(InterController.NIB.containsKey(ASNumSrc)
+				&& InterController.NIB.get(ASNumSrc).containsKey(ASNumDest)){
+			Neighbor tmp =  InterController.NIB.get(ASNumSrc).get(ASNumDest);
+			path = new ASpath();
+			path.src  = tmp.getASnumSrc();
+			path.dest = tmp.getASnumDest();
+			path.pathNode.add(path.dest);		
+		}			
+		InterController.NIBWriteLock = false;
 		return path;
 	}
 	
@@ -129,7 +158,7 @@ public class Routing {
 	public static boolean findOFFlowByPacket(IOFSwitch sw, OFPort inPort, FloodlightContext cntx) throws IOException {
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		ASpath path = null;
-		int ASnumSrc = 0, ASnumDest = 0;
+		int ASNumSrc = 0, ASNumDest = 0;
 		byte type = 0x1f;
 		Match.Builder mb = sw.getOFFactory().buildMatch();
 
@@ -138,20 +167,24 @@ public class Routing {
 			IPv4 ip = (IPv4) eth.getPayload();
 			IPv4Address srcIP = ip.getSourceAddress();
 			IPv4Address destIP = ip.getDestinationAddress();
-			ASnumSrc = Routing.getMatchedASnum(srcIP);
-			ASnumDest = Routing.getMatchedASnum(destIP);
-			path = Routing.getRoutingPath(ASnumSrc,ASnumDest);
-			if(path == null )
-				return false; // it's not a interDomain problem	
+			ASNumSrc = Routing.getMatchedASnum(srcIP);
+			ASNumDest = Routing.getMatchedASnum(destIP);
+			path = Routing.getRoutingPath(ASNumSrc,ASNumDest);
+			if(path == null ){				
+				path = Routing.getRoutingPathFromNIB(ASNumSrc, ASNumDest);
+				if(path == null)
+					return false; // it's not a interDomain problem	
+			}
 			mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
 				.setExact(MatchField.IPV4_SRC, srcIP)
 				.setExact(MatchField.IPV4_DST, destIP);	
-			if(ASnumSrc == InterController.myASnum){
+			if(ASNumSrc == InterController.myASNum || ASNumDest == InterController.myASNum){
 				if (ip.getProtocol().equals(IpProtocol.TCP)) {
 					TCP tcp = (TCP) ip.getPayload();
 					if(InterController.serverPort == tcp.getSourcePort().getPort()
 							||InterController.serverPort ==tcp.getDestinationPort().getPort()){
 						//it's the server socket Port
+						path = Routing.getRoutingPathFromNIB(ASNumSrc, ASNumDest);
 						type = (byte)(type&0xf5);
 					}
 					
@@ -180,7 +213,7 @@ public class Routing {
 			//match by vid
 			else{
 				mb.setExact(MatchField.VLAN_VID, OFVlanVidMatch.ofVlan(eth.getVlanID()));	
-				if(path.pathNode.size()==1)
+				if(path.pathNode.size()==1 && ASNumDest != InterController.myASNum)
 					type = (byte)(type&0xf4); //rm vlanId and output port
 				else
 					type = (byte)(type&0xf1); //output port
@@ -191,8 +224,17 @@ public class Routing {
 			IPv4Address srcIP  = arp.getSenderProtocolAddress();
 			IPv4Address destIP = arp.getTargetProtocolAddress();
 			path = Routing.getRoutingPath(srcIP,destIP);
-			if(path == null)
-				return false; // it's not a interDomain problem
+			if(path == null){
+				path = Routing.getRoutingPathFromNIB(ASNumSrc, ASNumDest);
+				if(path == null){
+					return false;
+				//	path = new ASpath();
+				//	path.src  = 0;
+				//	path.dest = 0;
+				//	path.pathNode.add(InterController.myASNum);	
+				}
+					//return false; // it's not a interDomain problem	
+			}
 		    mb.setExact(MatchField.ETH_TYPE, EthType.ARP)
 				.setExact(MatchField.ARP_SPA, srcIP)
 				.setExact(MatchField.ARP_TPA, destIP);	
@@ -220,24 +262,22 @@ public class Routing {
 		boolean ifSrcAS = false;
 		boolean ifDestAS = false;
 		int nextHop = path.getNextHop();
-		if(InterController.myASnum == path.src)
+		if(InterController.myASNum == path.src)
 			ifSrcAS = true;
-		if(InterController.myASnum == path.dest)
+		if(InterController.myASNum == path.dest)
 			ifDestAS = true;
-		if(!InterController.NIB.get(InterController.myASnum).containsKey(nextHop))
+		if(!InterController.NIB.get(InterController.myASNum).containsKey(nextHop))
 			return null; // there is no path from myAS to the nextHop		
 		if(ifSrcAS&&ifDestAS)
 			return null; // it's not the interDomain problem
 		
-		Neighbor nei = InterController.NIB.get(InterController.myASnum).get(nextHop);
+		Neighbor nei = InterController.NIB.get(InterController.myASNum).get(nextHop);
 		Match.Builder mb = sw.getOFFactory().buildMatch();
 		
 		// if myAS is in the middle of the path, need to match the vlan
 		if(!(ifSrcAS || ifDestAS)) 
 			mb.setExact(MatchField.VLAN_VID, OFVlanVidMatch.ofVlan(100+path.pathKey));
 		
-	//	mb.setExact(MatchField.VLAN_VID, OFVlanVidMatch.ofVlan(100+path.pathKey));
-	//	mb.setExact(MatchField.MPLS_LABEL, (U32)EncodeData.int2ByteArray(10));
 		switch (type){
 		case 0x01:
 			mb.setExact(MatchField.ETH_TYPE, EthType.IPv4);
@@ -295,19 +335,21 @@ public class Routing {
 			break;
 		default:
 			System.out.printf("Routing.creatMatchByPath type error:%s", type);
+			return false;
 		}
 		
-		mb.setMasked(MatchField.IPV4_DST,  IPv4AddressWithMask.of(InterController.ASNodeList.get(InterController.myASnum).IPperfix.Iperfix2String()));	
+//		mb.setMasked(MatchField.IPV4_DST,  IPv4AddressWithMask.of(InterController.ASNodeList.get(InterController.myASnum).IPperfix.Iperfix2String()));	
 		
 		OFFlowMod.Builder fmb = null ;//OFFactories.getFactory(fmb.getVersion()).buildFlowModify();	
 		List<OFAction> actions = new ArrayList<OFAction>();	
 		fmb = sw.getOFFactory().buildFlowAdd();
-		actions.add(sw.getOFFactory().actions().output(InterController.controllerOFport, 65535));
+		actions.add(sw.getOFFactory().actions().output(OFPort.CONTROLLER,65535));
 		
 		fmb.setIdleTimeout(0)
 		.setHardTimeout(InterController.FLOWMOD_DEFAULT_HARD_TIMEOUT)
-		.setPriority(0);
-
+		.setPriority(1);
+		
+		fmb.setMatch(mb.build());
 		FlowModUtils.setActions(fmb, actions, sw);
 		sw.write(fmb.build());
 		
@@ -331,7 +373,7 @@ public class Routing {
 		}
 		int priority = 0;
 		int idleTimeout = InterController.FLOWMOD_DEFAULT_IDLE_TIMEOUT;
-		OFPort outPort = OFPort.CONTROLLER;
+		OFPort outPort = OFPort.LOCAL;
 		OFFlowMod.Builder fmb = null ;//OFFactories.getFactory(fmb.getVersion()).buildFlowModify();	
 		List<OFAction> actions = new ArrayList<OFAction>();	
 		Match.Builder mb = null;
@@ -348,10 +390,13 @@ public class Routing {
 				return false;
 		
 			int nextHop = path.getNextHop();
-			if(!InterController.NIB.get(InterController.myASnum).containsKey(nextHop))
-				return false; // there is no path from myAS to nextHop;
-		    outPort = InterController.NIB.get(InterController.myASnum).get(nextHop).outPort;
-			
+			if(nextHop == InterController.myASNum)
+				outPort = OFPort.LOCAL;
+			else{
+				if(!InterController.NIB.get(InterController.myASNum).containsKey(nextHop))
+					return false; // there is no path from myAS to nextHop;
+			    outPort = InterController.NIB.get(InterController.myASNum).get(nextHop).outPort;
+			}
 			switch(type&0xf0){
 			case 0x10://add flow
 				fmb = sw.getOFFactory().buildFlowAdd();
@@ -373,18 +418,18 @@ public class Routing {
 			//add the actions
 			switch(type&0x0f){
 			case 0x01: //just out put
-				actions.add(sw.getOFFactory().actions().output(outPort,0));
+				actions.add(sw.getOFFactory().actions().output(outPort,65535));
 				priority = priorityHigh;
 				break;
 			case 0x02: //output to port and controller
-				actions.add(sw.getOFFactory().actions().output(outPort,0));
+				actions.add(sw.getOFFactory().actions().output(outPort,65535));
 				actions.add(sw.getOFFactory().actions().output(OFPort.CONTROLLER, 65535));
 				idleTimeout = 0;
 				priority = priorityLow;
 				break;
 			case 0x03:  //set vlanId and output port
 				actions.add(sw.getOFFactory().actions().setVlanVid(VlanVid.ofVlan((100+path.pathKey))));//);
-				actions.add(sw.getOFFactory().actions().output(outPort,0));
+				actions.add(sw.getOFFactory().actions().output(outPort,65535));
 				priority = priorityHigh;
 				break;
 			case 0x04:  //rm the vlanID
@@ -394,12 +439,12 @@ public class Routing {
 				priority = priorityHigh;
 				break;
 			case 0x05: //for the simrp msg, tcp port = serverPort
-				actions.add(sw.getOFFactory().actions().output(outPort,0));
+				actions.add(sw.getOFFactory().actions().output(outPort,65535));
 				idleTimeout = InterController.holdingTime;
 				priority = priorityLow;
 				break;
 			case 0x06:  // for arp 
-				actions.add(sw.getOFFactory().actions().output(outPort,0));
+				actions.add(sw.getOFFactory().actions().output(outPort,65535));
 				idleTimeout = InterController.holdingTime;
 				priority = priorityHigh;
 				break;
@@ -415,7 +460,8 @@ public class Routing {
 		
 		if(match!=null){
 			fmb.setMatch(mb.build());
-			System.out.printf("Pushing Route flowmod to sw:%s, path:%s->%s   %s\n", sw, path.src, path.dest, match.get(MatchField.IP_PROTO));
+			System.out.printf("Pushing Route flowmod to sw:%s, type:%s, path:%s->%s, nextHop:%s, outPort:%s, pathKey:%s\n", 
+					sw, match.get(MatchField.IP_PROTO), path.src, path.dest, path.pathNode.getFirst(), outPort, path.pathKey);
 		}
 		else{ //unknown msg, send to controller
 			System.out.printf("Pushing controller flow to sw:%s\n", sw);
@@ -444,7 +490,7 @@ public class Routing {
 				//push the default path to the switch
 				for(Map.Entry<Integer, Map<Integer,ASpath>>entry:localRIB.entrySet()){
 					if(!entry.getValue().containsKey(0)){ //get the best path (pathKey=0)  should have
-						System.out.printf("!!Error, Routing.pushBestPath2Switch: %s to %s", InterController.myASnum, entry.getKey());
+						System.out.printf("!!Error, Routing.pushBestPath2Switch: %s to %s", InterController.myASNum, entry.getKey());
 						continue;
 					}	
 					path = entry.getValue().get(0);
@@ -472,9 +518,9 @@ public class Routing {
 			pushRoute(sw, null, null, (byte)0x10);
 			pushDefaultFlow2Controller(sw, (byte)0x01);
 			pushDefaultFlow2Controller(sw, (byte)0x02);
-			pushDefaultFlow2Controller(sw, (byte)0x03);
-			pushDefaultFlow2Controller(sw, (byte)0x04);
-			pushDefaultFlow2Controller(sw, (byte)0x05);
+	//		pushDefaultFlow2Controller(sw, (byte)0x03);
+	//		pushDefaultFlow2Controller(sw, (byte)0x04);
+	//		pushDefaultFlow2Controller(sw, (byte)0x05);
 			return true;
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

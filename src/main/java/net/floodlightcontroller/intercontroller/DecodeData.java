@@ -60,10 +60,14 @@ public class DecodeData {
 		for(int i=0 ; i<8; i++)
 			tmp[i] = msg[begin+32+i];
 		res.inSwitch = DatapathId.of(tmp);
-		if((byte) (msg[begin+40]&(0xc0))==0x40)	
-			res.exists = false;
-		else 
-			res.exists = true;
+		if((byte) (msg[begin+40]&(0xc0))==0x40)	{
+			res.exists  = false;
+			res.started = false;
+		}
+		else {
+			res.exists  = true;
+			res.started = true;
+		}
 		msg[begin+40] = (byte)(msg[begin+40]&(0x3f));
 		res.attribute.latency = byte2Int(msg, begin+40);
 		res.attribute.bandwidth = byte2Int(msg, begin+44);
