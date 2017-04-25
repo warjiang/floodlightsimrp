@@ -22,10 +22,19 @@ public class HandleSIMRP {
 	public static byte handleHello(byte[] msg,OutputStream out, boolean HelloFlag, String socketAddress){
 		System.out.printf("%s:%s:Get Hello Msg\n", socketAddress, System.currentTimeMillis()/1000);
 		int len =DecodeData.byte2Int(msg,8);
-
+		
+		int holdingTime = DecodeData.byte2Integer(msg,14);
+		if(holdingTime > InterController.holdingTime){
+			byte[] tmp = EncodeData.Integer2ByteArray(InterController.holdingTime); // s
+			for(int i=0; i<2; i++)
+				msg[14+i] = tmp[i];
+		}
+		else 
+			InterController.holdingTime = holdingTime;
+		
 		// get hello+yes 
 		if(msg[len-3]==(byte)0x01){	
-			msg[len-3] = (byte) 0x03;
+			msg[len-3] = (byte) 0x03;	
 			if(!HandleSIMRP.doWirteNtimes(out, msg, InterController.doWriteRetryTimes, "hello0x01->0x03", socketAddress))
 				return 0x01;	
 			return 0x12;  //other side is OK
@@ -46,9 +55,12 @@ public class HandleSIMRP {
 			System.out.printf("%s:%s:HelloFlag=False(Keepalive)", socketAddress, System.currentTimeMillis()/1000);
 			return 0x02;
 		}
+		int keepAliveTime = DecodeData.byte2Integer(msg,14);
+		InterController.keepaliveTime = keepAliveTime > InterController.keepaliveTime? InterController.keepaliveTime:keepAliveTime;
 		
 		if((msg[msg.length-3]&0x01)==0x01){//
-			System.out.printf("%s:%s:Get Keepalive regular Msg: 101\n", socketAddress, System.currentTimeMillis()/1000);
+			System.out.printf("%s:%s:Get Keepalive regular Msg: 101keepAliveTime:%s, holdingTime:%s\n", 
+					socketAddress, System.currentTimeMillis()/1000, InterController.keepaliveTime,InterController.holdingTime);
 			return 0x21;	
 		}		
 		else if((msg[msg.length-3]&0x02)==0x02){

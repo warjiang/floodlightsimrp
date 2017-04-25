@@ -37,6 +37,8 @@ import net.floodlightcontroller.util.OFMessageDamper;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.protocol.OFType;
+import org.projectfloodlight.openflow.protocol.OFVersion;
+import org.projectfloodlight.openflow.protocol.match.MatchField;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.python.modules.time.Time;
@@ -88,8 +90,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	public static int myASNum  = 0;
 	public static String myIPstr;
 	
-	public static double defaultThreadSleepTime  = 1;
-	public static double simrpMsgCheckPeriod     = 1;
+	public static double defaultThreadSleepTime  = 0.5;
+	public static double simrpMsgCheckPeriod     = 0.5;
 	
 	public static Map<Integer, Neighbor> myNeighbors = null; //<ASDestnum, Neighbor>
 	
@@ -345,7 +347,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	 * handle the packetIn msg, if the dest is in this AS, return continue, else search for an InterAS path
 	 */
 	public Command processPacketInMessage(IOFSwitch sw, OFPacketIn pi, FloodlightContext cntx) throws IOException{
-		if(Routing.findOFFlowByPacket(sw, null, cntx))
+		OFPort inPort = (pi.getVersion().compareTo(OFVersion.OF_12) < 0 ? pi.getInPort() : pi.getMatch().get(MatchField.IN_PORT));
+		if(Routing.findOFFlowByPacket(sw, inPort, cntx))
 			return Command.STOP;
 		return Command.CONTINUE;
 	}

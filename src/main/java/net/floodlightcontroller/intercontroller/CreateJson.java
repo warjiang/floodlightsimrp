@@ -9,7 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class CreateJson {
 	public static void createNIBJson(){
-		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"NIB.json";
+		//String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"NIB.json";
+		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/NIB.json";
 		File file = new File(fileName);
 		if(!file.exists())
 			try {
@@ -43,7 +44,8 @@ public class CreateJson {
 	}
 	
 	public static void createRIBJson(){
-		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"RIB.json";
+	//	String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"RIB.json";
+		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/RIB.json";
 		File file = new File(fileName);
 		if(!file.exists())
 			try {
@@ -72,7 +74,8 @@ public class CreateJson {
 	}
 	
 	public static void createPIBJson() {
-		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"PIB.json";
+		//String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/"+InterController.myIPstr+"PIB.json";
+		String fileName = "src/main/java/net/floodlightcontroller/intercontroller/JSON/PIB.json";
 		File file = new File(fileName);
 		if(!file.exists())
 			try {

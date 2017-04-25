@@ -246,7 +246,7 @@ public class updateNIB {
 	}
 	
 	public static void updateASnum2neighborASNumList(int ASNum, boolean ifadd){
-		String str;
+	//	String str;
 		if(ifadd){
 			if(!InterController.PIB.contains(ASNum) 
 					&& InterController.myNeighbors.containsKey(ASNum)

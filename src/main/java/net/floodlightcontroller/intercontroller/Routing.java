@@ -34,6 +34,8 @@ public class Routing {
 	protected static int priorityHigh = 7;
 	protected static int priorityDefault = 4;
 	protected static int priorityLow = 2;
+	protected static int offsetVlan = 100;
+	protected static int noVlan = 300;
 		
 	
 	/**
@@ -43,10 +45,18 @@ public class Routing {
 	 * @return ASpath
 	 * @author xftony
 	 */
-	public static ASpath getRoutingPath(int ASNumSrc, int ASNumDest){
+	public static ASpath getRoutingPath(int ASNumSrc, int ASNumDest, int pathKeyFromVlan){
 		ASpath path = null;
 		if(ASNumSrc==ASNumDest) //it's not interDomain problem
 			return path;
+		if(pathKeyFromVlan!= noVlan){
+			if(InterController.curRIB.containsKey(ASNumSrc)
+					&& InterController.curRIB.get(ASNumSrc).containsKey(ASNumDest)
+					&& InterController.curRIB.get(ASNumSrc).get(ASNumDest).containsKey(pathKeyFromVlan))
+				path = InterController.curRIB.get(ASNumSrc).get(ASNumDest).get(pathKeyFromVlan).clone();
+				return path;
+		}
+		
 		int pathKey = 0;
 		int pathNum = InterController.maxPathNum; //use to reduce the circulation
 		while(InterController.RIBWriteLock){
@@ -109,7 +119,7 @@ public class Routing {
 	public static ASpath getRoutingPath(IPv4Address srcIP, IPv4Address dstIP){
 		int ASnumSrc = getMatchedASnum(srcIP);
 		int ASnumDest = getMatchedASnum(dstIP);
-		ASpath path = getRoutingPath(ASnumSrc,ASnumDest);
+		ASpath path = getRoutingPath(ASnumSrc,ASnumDest, noVlan);
 		return path;
 	}
 	
@@ -159,6 +169,7 @@ public class Routing {
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		ASpath path = null;
 		int ASNumSrc = 0, ASNumDest = 0;
+		int pathKeyFromVlan = eth.getVlanID()-offsetVlan ;;
 		byte type = 0x1f;
 		Match.Builder mb = sw.getOFFactory().buildMatch();
 
@@ -169,12 +180,8 @@ public class Routing {
 			IPv4Address destIP = ip.getDestinationAddress();
 			ASNumSrc = Routing.getMatchedASnum(srcIP);
 			ASNumDest = Routing.getMatchedASnum(destIP);
-			path = Routing.getRoutingPath(ASNumSrc,ASNumDest);
-			if(path == null ){				
-				path = Routing.getRoutingPathFromNIB(ASNumSrc, ASNumDest);
-				if(path == null)
-					return false; // it's not a interDomain problem	
-			}
+			if(ASNumSrc==0 && ASNumDest==0)
+				return false;
 			mb.setExact(MatchField.ETH_TYPE, EthType.IPv4)
 				.setExact(MatchField.IPV4_SRC, srcIP)
 				.setExact(MatchField.IPV4_DST, destIP);	
@@ -201,6 +208,15 @@ public class Routing {
 				else if(ip.getProtocol().equals(IpProtocol.ICMP))	{
 					mb.setExact(MatchField.IP_PROTO, IpProtocol.ICMP);
 				}
+						
+				if(path == null ){		
+					path = Routing.getRoutingPath(ASNumSrc,ASNumDest, noVlan);	
+					if(path == null){
+						path = Routing.getRoutingPathFromNIB(ASNumSrc, ASNumDest);
+						if(path == null)
+							return false; // it's not a interDomain problem	
+					}
+				}
 				//if it's not the server socket Port
 				if(0x1f==type){ 
 					if(path.pathNode.size()>1)
@@ -210,14 +226,22 @@ public class Routing {
 				}
 					
 			}
+			
 			//match by vid
-			else{
+			else if(pathKeyFromVlan != -offsetVlan){
+				if(path == null){
+					path = Routing.getRoutingPath(ASNumSrc, ASNumDest, pathKeyFromVlan);
+					if(path == null){
+						System.out.printf("Error: Routing.findOFFlowByPacket: do not have the path in RIB: %s->%s  pathKey %s\n ", ASNumSrc, ASNumDest, pathKeyFromVlan);
+						return false;
+					}
+				}
 				mb.setExact(MatchField.VLAN_VID, OFVlanVidMatch.ofVlan(eth.getVlanID()));	
 				if(path.pathNode.size()==1 && ASNumDest != InterController.myASNum)
 					type = (byte)(type&0xf4); //rm vlanId and output port
 				else
 					type = (byte)(type&0xf1); //output port
-			}	
+			}
 		} 
 		else if (eth.getEtherType() == EthType.ARP) { /* shallow check for equality is okay for EthType */
 			ARP arp = (ARP) eth.getPayload();
@@ -418,6 +442,7 @@ public class Routing {
 			//add the actions
 			switch(type&0x0f){
 			case 0x01: //just out put
+		//		actions.add(sw.getOFFactory().actions().setVlanVid(VlanVid.ofVlan((101+path.pathKey))));//);
 				actions.add(sw.getOFFactory().actions().output(outPort,65535));
 				priority = priorityHigh;
 				break;
@@ -428,7 +453,7 @@ public class Routing {
 				priority = priorityLow;
 				break;
 			case 0x03:  //set vlanId and output port
-				actions.add(sw.getOFFactory().actions().setVlanVid(VlanVid.ofVlan((100+path.pathKey))));//);
+				actions.add(sw.getOFFactory().actions().setVlanVid(VlanVid.ofVlan((offsetVlan+path.pathKey))));//);
 				actions.add(sw.getOFFactory().actions().output(outPort,65535));
 				priority = priorityHigh;
 				break;

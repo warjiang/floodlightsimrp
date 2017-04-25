@@ -208,6 +208,8 @@ public class updateRIB {
 	//	if(ifadd && path.pathKey==0)
 	//		InterController.pushSinglePath2Switch(path);
 	//	PrintIB.printPath(path);
+		if(path==null || path.pathNode.isEmpty())
+			return;
 		if(path.pathNode.size()>2){		
 			ASpath pathTmp = path.cloneBeginWithNextHop();
 			updateSinglePathInRIB2BeUpdate(pathTmp, ifadd);
