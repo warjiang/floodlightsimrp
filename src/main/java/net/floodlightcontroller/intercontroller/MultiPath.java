@@ -11,103 +11,124 @@ public class MultiPath {
 //	protected static Logger log = LoggerFactory.getLogger(intercontroller.class);
 	public Set<Integer> open;
 	public Set<Integer> close;
-	public Map<Integer, SectionAttri> delayMap;
+	public Map<Integer, Attribute> WeightMap;
 	public Map<Integer, Integer> perviousNode;
-	public Map<Integer,Map<Integer,ASpath>> RIBFromlocal; //<ASnumDest,<key, ASpath>>
+	public Map<Integer,Map<Integer,ASPath>> RIBFromlocal; //<ASNumDest,<key, ASPath>>
 	public int confSizeMB;
 	public int unKnowASnum = -1;
 	public int pathKeyForBestPath = 0;
-	public int MaxPathNum = 3;
+	public int maxPathNum = 4;
+	public int minBandWidth ;
+	public int maxBroKenTime ;
 	
 	public MultiPath(){
 		this.open = new HashSet<Integer>();
 		this.close = new HashSet<Integer>();
-		this.delayMap = new HashMap<Integer, SectionAttri>(); //ASnodeDestNum, val; maybe need to check
+		this.WeightMap = new HashMap<Integer, Attribute>(); //ASnodeDestNum, val; maybe need to check
 		this.perviousNode = new HashMap<Integer, Integer>(); //ASnodeDestNum, previousNodeNum;
-		this.RIBFromlocal = new HashMap<Integer,Map<Integer,ASpath>>();//<ASnumDest,<key, ASpath>>
-		this.confSizeMB = InterController.confSizeMB;
-		this.MaxPathNum = InterController.maxPathNum;
+		this.RIBFromlocal = new HashMap<Integer,Map<Integer,ASPath>>();//<ASNumDest,<key, ASPath>>
+		this.maxPathNum   = 4;
+		this.minBandWidth = 1;
+		this.maxBroKenTime= 10;
+	}
+	
+	public MultiPath(int maxPathNum, int minBandWidth, int maxBroKenTime){
+		this.open = new HashSet<Integer>();
+		this.close = new HashSet<Integer>();
+		this.WeightMap = new HashMap<Integer, Attribute>(); //ASnodeDestNum, val; maybe need to check
+		this.perviousNode = new HashMap<Integer, Integer>(); //ASnodeDestNum, previousNodeNum;
+		this.RIBFromlocal = new HashMap<Integer,Map<Integer,ASPath>>();//<ASNumDest,<key, ASPath>>
+		this.maxPathNum   = maxPathNum;
+		this.minBandWidth = minBandWidth;
+		this.maxBroKenTime= maxBroKenTime;
 	}
 	
 	/**
 	 * Init the MultiPath data.
-	 * @param ASnumSrc
+	 * @param ASNumSrc
 	 * @param NIB
 	 * @param ASnodeList
-	 * @param ASnodeNumList
+	 * @param ASNodeNumList
 	 * @author xftony
 	 */
-	public void MultiPathInit(Integer ASnumSrc, Map<Integer,Map<Integer,Neighbor>>NIB, Set<Integer> ASnodeNumList){
+	public void MultiPathInit(Integer ASNumSrc, Map<Integer,Map<Integer,Link>>NIB, Set<Integer> ASNodeNumList){
 		if(NIB==null){
 			System.out.printf("!!!!!!!!!!!!!NIB is null!!!!!!!!!");
 			return ;
 		}
 		this.open = new HashSet<Integer>();
 		this.close = new HashSet<Integer>();
-		this.delayMap = new HashMap<Integer, SectionAttri>(); //ASnodeDestNum, val; maybe need to check
+		this.WeightMap = new HashMap<Integer, Attribute>(); //ASnodeDestNum, val; maybe need to check
 		this.perviousNode = new HashMap<Integer, Integer>(); //ASnodeDestNum, previousNodeNum;
 		
 		
 		
-		for(Integer ASnodeNum : ASnodeNumList){
-			SectionAttri tmpAttri = new SectionAttri();
-			if(!ASnodeNum.equals(ASnumSrc))
-				open.add(ASnodeNum);
+		for(Integer ASNodeNum : ASNodeNumList){
+			Attribute tmpAttri = new Attribute();
+			if(!ASNodeNum.equals(ASNumSrc))
+				open.add(ASNodeNum);
 			else 
-				close.add(ASnumSrc);
-			if(NIB.containsKey(ASnumSrc) && NIB.get(ASnumSrc).containsKey(ASnodeNum) 
-					&& NIB.get(ASnumSrc).get(ASnodeNum).started){
-				delayMap.put(ASnodeNum, NIB.get(ASnumSrc).get(ASnodeNum).attribute);
-				perviousNode.put(ASnodeNum, ASnumSrc);	
+				close.add(ASNumSrc);
+			if(NIB.containsKey(ASNumSrc) && NIB.get(ASNumSrc).containsKey(ASNodeNum) 
+					&& NIB.get(ASNumSrc).get(ASNodeNum).started){
+				tmpAttri.bandwidth   = NIB.get(ASNumSrc).get(ASNodeNum).bandWidth;
+				tmpAttri.brokenTimes = NIB.get(ASNumSrc).get(ASNodeNum).seq - NIB.get(ASNumSrc).get(ASNodeNum).seqOld;
+				tmpAttri.latency     = 1;
+				tmpAttri.weight      = 1;
+				WeightMap.put(ASNodeNum, tmpAttri);
+				perviousNode.put(ASNodeNum, ASNumSrc);	
 			}
-			else if(ASnumSrc.equals(ASnodeNum)){
+			else if(ASNumSrc.equals(ASNodeNum)){
 				tmpAttri.bandwidth = Integer.MAX_VALUE;
 				tmpAttri.latency   = 0;
-				delayMap.put(ASnodeNum, tmpAttri);
-				perviousNode.put(ASnodeNum, ASnumSrc);
+				tmpAttri.weight    = 0;
+				WeightMap.put(ASNodeNum, tmpAttri);
+				perviousNode.put(ASNodeNum, ASNumSrc);
 			}
 			else {
-				delayMap.put(ASnodeNum, tmpAttri);
-				perviousNode.put(ASnodeNum, unKnowASnum);		
+				WeightMap.put(ASNodeNum, tmpAttri);
+				perviousNode.put(ASNodeNum, unKnowASnum);		
 			}
 		}
 		
 	}
 	
 	/**
-	 * get the shorest node(the hole path's delay is min) from openNodes to ASnumInClose
+	 * get the shorest node(the hole path's Weight is min) from openNodes to ASnumInClose
 	 * @param NIB
 	 * @param ASnumInClose
 	 * @return
 	 * @author xftony
 	 */
-	public ASsection shortestNode(Map<Integer,Map<Integer,Neighbor>>NIB){
+	public ASSection shortestNode(Map<Integer,Map<Integer,Link>>NIB){
 		if(close.isEmpty()||open.isEmpty()) 
 			return null;
 		boolean flag = false;
 		int NodeNumInClose = 0;
 		int NodeNumInOpen = 0;
 		int minValue = Integer.MAX_VALUE;
-		SectionAttri tmpSectionAttri = new SectionAttri();
-		int tmpDelay = Integer.MAX_VALUE;
+		Attribute tmpAttribute = new Attribute();
+		int tmpWeight = Integer.MAX_VALUE;
 		int tmpLatency = 0;
 		int tmpBandwidth = Integer.MAX_VALUE;
-		ASsection section = new ASsection();
+		ASSection section = new ASSection();
 		for(Integer nodeOpen : open){			
 			for(Integer nodeClose :close){
 				if(NIB.containsKey(nodeClose) && NIB.get(nodeClose).containsKey(nodeOpen) 
 						&& NIB.get(nodeClose).get(nodeOpen).started
-						&& NIB.get(nodeClose).get(nodeOpen).getBandwidth()>0){			
-					tmpLatency   = this.delayMap.get(nodeClose).latency + NIB.get(nodeClose).get(nodeOpen).getLatency();
-	        		tmpBandwidth = this.delayMap.get(nodeClose).bandwidth < NIB.get(nodeClose).get(nodeOpen).getBandwidth()?
-							delayMap.get(nodeClose).bandwidth : NIB.get(nodeClose).get(nodeOpen).getBandwidth();
-					tmpDelay = pathValue(tmpLatency, tmpBandwidth); //src to dest
-					if(tmpLatency>InterController.maxLatency||tmpBandwidth<InterController.minBandwidth)
+						&& NIB.get(nodeClose).get(nodeOpen).getBandwidth()> minBandWidth){			
+	        		tmpBandwidth = WeightMap.get(nodeClose).bandwidth < NIB.get(nodeClose).get(nodeOpen).getBandwidth()?
+							WeightMap.get(nodeClose).bandwidth : NIB.get(nodeClose).get(nodeOpen).getBandwidth();
+					if(tmpBandwidth < minBandWidth)
 						continue;
-					if(minValue> tmpDelay){
-						minValue = tmpDelay;
-						tmpSectionAttri.bandwidth = tmpBandwidth;
-						tmpSectionAttri.latency   = tmpLatency;
+					tmpWeight = pathValue(WeightMap.get(nodeClose).weight, NIB.get(nodeClose).get(nodeOpen).seq - NIB.get(nodeClose).get(nodeOpen).seqOld ); //src to dest
+					tmpLatency   = this.WeightMap.get(nodeClose).latency + 1;
+					if(minValue > tmpWeight){
+						minValue = tmpWeight;
+						tmpAttribute.bandwidth = tmpBandwidth;
+						tmpAttribute.latency   = tmpLatency;
+						tmpAttribute.weight    = tmpWeight;
+						tmpAttribute.linkID    = NIB.get(nodeClose).get(nodeOpen).linkID;
 						NodeNumInClose = nodeClose;
 						NodeNumInOpen  = nodeOpen;
 					}
@@ -115,75 +136,79 @@ public class MultiPath {
 				}
 			}
 		}
-		if(!flag || tmpSectionAttri.bandwidth<InterController.minBandwidth) //there is no link between open and close, double check the bandwidth
+		if(!flag || tmpAttribute.bandwidth < minBandWidth) //there is no link between open and close, double check the bandwidth
 			return null;
-		section.ASnumSrc  = NodeNumInClose;
-		section.ASnumDest = NodeNumInOpen;
-		section.attribute = tmpSectionAttri;
+		section.ASNumSrc  = NodeNumInClose;
+		section.ASNumDest = NodeNumInOpen;
+		section.attribute = tmpAttribute;
 		return section;
 	}
 	
 	/**
-	 * calculate the shortest Path for the topo the path is store in perviousNode
+	 * calculate the shortest Path for the topo, the path is store in perviousNode
 	 * @param ASnumInClose
 	 * @param NIB
 	 * @author xftony
 	 */
-	public void calculatePath(Map<Integer,Map<Integer,Neighbor>>NIB){
+	public void calculatePath(Map<Integer,Map<Integer,Link>>NIB){
 		if(NIB.isEmpty())
 			return;
-		ASsection newSection = shortestNode(NIB);
+		ASSection newSection = shortestNode(NIB);
 		if(newSection != null){
-			close.add(newSection.ASnumDest);
-			open.remove(newSection.ASnumDest);
-			int tmpDealyPre = pathValue(this.delayMap.get(newSection.ASnumDest).latency,this.delayMap.get(newSection.ASnumDest).bandwidth);
-			int tmpDealyCur = pathValue(newSection.attribute.latency, newSection.attribute.bandwidth);
+			close.add(newSection.ASNumDest);
+			open.remove(newSection.ASNumDest);
+			int tmpDealyPre = this.WeightMap.get(newSection.ASNumDest).weight;
+			int tmpDealyCur = newSection.attribute.weight;
 					
-			if(tmpDealyPre > tmpDealyCur){
-				this.delayMap.put(newSection.ASnumDest, newSection.attribute);
-				this.perviousNode.put(newSection.ASnumDest, newSection.ASnumSrc);
-				}
+			if(tmpDealyPre > tmpDealyCur){		
+				this.WeightMap.put(newSection.ASNumDest, newSection.attribute);
+				this.perviousNode.put(newSection.ASNumDest, newSection.ASNumSrc);
+			}
 			calculatePath(NIB);
 		}
 	}
 	
 	/**
-	 * update the single path from ASnumSrc to ASnumDest with pathKey;
-	 * @param ASnumSrc
-	 * @param ASnumDest
+	 * update the single path from ASNumSrc to ASNumDest with pathKey;
+	 * @param ASNumSrc
+	 * @param ASNumDest
 	 * @param pathKey (the shortest:0; the disjoint:1; the second shortest:2)
-	 * @param ASnodeNumList
+	 * @param ASNodeNumList
 	 * @author xftony
 	 */
-	public void updateSinglePath(int ASnumSrc, int ASnumDest, int pathKey, Set<Integer> ASnodeNumList){
-		int tmpASnum = 0;
-		int tmpASnumDest = ASnumDest;
-		ASpath path = new ASpath();
-		Map<Integer,ASpath> tmpRIBMap = new HashMap<Integer,ASpath> ();
-		if(this.RIBFromlocal.containsKey(tmpASnumDest))
-			tmpRIBMap.putAll(this.RIBFromlocal.get(tmpASnumDest));
-		path.src  = ASnumSrc;
-		path.dest = tmpASnumDest;
-		path.len  = 1;
-		path.priority  = MaxPathNum - pathKey;
-		path.latency   =  delayMap.get(tmpASnumDest).latency;
-		path.bandwidth =  delayMap.get(tmpASnumDest).bandwidth;
-		path.delay     = pathValue(path.latency, path.bandwidth);
+	public void updateSinglePath(Map<Integer,Map<Integer,Link>>NIB, int ASNumSrc, int ASNumDest, int pathKey, Set<Integer> ASNodeNumList){
+		int tmpASNum = 0;
+		int tmpASNumDest = ASNumDest;
+		ASPath path = new ASPath();
+		Map<Integer,ASPath> tmpRIBMap = new HashMap<Integer,ASPath> ();
+		if(this.RIBFromlocal.containsKey(tmpASNumDest))
+			tmpRIBMap.putAll(this.RIBFromlocal.get(tmpASNumDest));
+		path.srcASNum  = ASNumSrc;
+		path.destASNum = tmpASNumDest;
+	//	path.priority  = maxPathNum - pathKey;
+		path.len       =  0;
+		path.bandwidth =  WeightMap.get(tmpASNumDest).bandwidth;
+		path.weight    =  WeightMap.get(tmpASNumDest).weight;
 		path.pathKey   = pathKey;
-		path.pathNode.addFirst(tmpASnumDest);
+//		path.pathNodes.addFirst(tmpASNumDest);
 		//get the Path through the perviousNode.
-		while(tmpASnum != ASnumSrc && tmpASnum >=0){
-			tmpASnum = perviousNode.get(tmpASnumDest).intValue();
+		while(tmpASNum != ASNumSrc && tmpASNum >=0){
+			tmpASNum = perviousNode.get(tmpASNumDest).intValue();
+			if(tmpASNum==601)
+				tmpASNum = 601;
 			//make sure that the path start with the nextHop
-			if(ASnodeNumList.contains(tmpASnum) ){//&& tmpASnum!=ASnumSrc
-				path.len++;
-				path.pathNode.addFirst(tmpASnum);  //maybe need to check;
+			if(ASNodeNumList.contains(tmpASNum) ){//&& tmpASnum!=ASNumSrc
+				PathNode pathNode = new PathNode();
+				path.len ++;
+				pathNode.ASNum  = tmpASNumDest;
+				pathNode.linkID = NIB.get(tmpASNum).get(tmpASNumDest).linkID;
+				path.pathNodes.addFirst(pathNode);  //maybe need to check;
 			}
-			tmpASnumDest = tmpASnum;
+			tmpASNumDest = tmpASNum;
 		}	
-		if(tmpASnum == ASnumSrc){ 
+		if(tmpASNum == ASNumSrc){ 
 			tmpRIBMap.put(pathKey, path);
-			this.RIBFromlocal.put(ASnumDest,tmpRIBMap);
+			this.RIBFromlocal.put(ASNumDest,tmpRIBMap);
 		}
 	} 
 	
@@ -192,71 +217,83 @@ public class MultiPath {
 	 * @param key  the key of the local path(the shortest:0; the disjoint:1; the second shortest:2)
 	 * @author xftony
 	 */
-	public void updateRIBFromLocal(int ASnumSrc, int ASnumDest, int pathKey, Set<Integer> ASnodeNumList){
+	public void updateRIBFromLocal(Map<Integer,Map<Integer,Link>>NIB, int ASNumSrc, int ASNumDest, int pathKey, Set<Integer> ASNodeNumList){
 		if(pathKey == 0){
-			//update the best path for each ASnumDest
-			for(int nodeNum: ASnodeNumList)
-				if(ASnumSrc!=nodeNum)
-					updateSinglePath(ASnumSrc, nodeNum, pathKey, ASnodeNumList);
+			//update the best path for each ASNumDest
+			for(int nodeNum: ASNodeNumList)
+				if(ASNumSrc!=nodeNum)
+					updateSinglePath(NIB, ASNumSrc, nodeNum, pathKey, ASNodeNumList);
 		}
 		else
-			//update the disjoint or second-best path from ASnumSrc to ASnumDest
-			updateSinglePath(ASnumSrc, ASnumDest, pathKey, ASnodeNumList);
+			//update the disjoint or second-best path from ASNumSrc to ASNumDest
+			updateSinglePath(NIB, ASNumSrc, ASNumDest, pathKey, ASNodeNumList);
 	}
 	
 	/**
-	 * update the NIB, remove/(delete bandwidth) the used ASsection;
+	 * update the NIB, remove/(delete bandwidth) the used ASSection;
 	 * @param NIB
-	 * @param ASnumDest
+	 * @param ASNumDest
 	 * @param pathKey
 	 * @return newNIB
 	 * @author xftony
 	 */
-	public Map<Integer,Map<Integer,Neighbor>> updateNIB(Map<Integer,Map<Integer,Neighbor>>NIB, int ASnumDest, int pathKey){
+	public Map<Integer,Map<Integer,Link>> updateNIB(Map<Integer,Map<Integer,Link>>NIB, int ASNumDest, int pathKey){
 		if(NIB.isEmpty())
 			return NIB;
-		Map<Integer,Map<Integer,Neighbor>> newNIB = CloneUtils.NIBclone(NIB) ;
-		ASpath path = new ASpath();	
-		int ASnumSrcTmp = 0;
-		int ASnumDestTmp = 0;
+		Map<Integer,Map<Integer,Link>> newNIB = CloneUtils.cloneNIB(NIB) ;
+		ASPath path = new ASPath();	
+		PathNode ASNumSrcTmp ;
+		PathNode ASNumDestTmp ;
 		if(pathKey == 1){ //remove all the used Section int the best path
-			if(this.RIBFromlocal.containsKey(ASnumDest) &&this.RIBFromlocal.get(ASnumDest).containsKey(pathKeyForBestPath)){
-				path = this.RIBFromlocal.get(ASnumDest).get(pathKeyForBestPath).clone();
-				if(!path.pathNode.isEmpty()){
-					ASnumDestTmp = path.pathNode.getLast();
-					path.pathNode.removeLast();
+			if(this.RIBFromlocal.containsKey(ASNumDest) &&this.RIBFromlocal.get(ASNumDest).containsKey(pathKeyForBestPath)){
+				path = this.RIBFromlocal.get(ASNumDest).get(pathKeyForBestPath).clone();
+				if(!path.pathNodes.isEmpty()){
+					ASNumDestTmp = path.pathNodes.getLast();
+					path.pathNodes.removeLast();
+				
+					while(!path.pathNodes.isEmpty()){
+						ASNumSrcTmp = path.pathNodes.getLast();
+						path.pathNodes.removeLast();
+						if(newNIB.get(ASNumSrcTmp.ASNum).containsKey(ASNumDestTmp.ASNum))
+							newNIB.get(ASNumSrcTmp.ASNum).remove(ASNumDestTmp.ASNum);
+						ASNumDestTmp = ASNumSrcTmp;
+					}
+					if(newNIB.get(path.srcASNum).containsKey(ASNumDestTmp.ASNum))
+						newNIB.get(path.srcASNum).remove(ASNumDestTmp.ASNum);
 				}
-				while(!path.pathNode.isEmpty()){
-					ASnumSrcTmp = path.pathNode.getLast();
-					path.pathNode.removeLast();
-					if(newNIB.get(ASnumSrcTmp).containsKey(ASnumDestTmp))
-						newNIB.get(ASnumSrcTmp).remove(ASnumDestTmp);
-					ASnumDestTmp = ASnumSrcTmp;
-				}	
 			}
 		}
 		else{ //update the used path.bandwidth
 			for(int i =0; i<pathKey; i++){
-				if(!(this.RIBFromlocal.containsKey(ASnumDest)&&this.RIBFromlocal.get(ASnumDest).containsKey(i)))
+				if(!(this.RIBFromlocal.containsKey(ASNumDest)&&this.RIBFromlocal.get(ASNumDest).containsKey(i)))
 					break;
-				path = this.RIBFromlocal.get(ASnumDest).get(i).clone();
+				path = this.RIBFromlocal.get(ASNumDest).get(i).clone();
 				int pathBandwidth = path.bandwidth;		
-				if(!path.pathNode.isEmpty()){
-					ASnumDestTmp = path.pathNode.getLast();
-					path.pathNode.removeLast();
-				}
-				while(!path.pathNode.isEmpty()){
-					ASnumSrcTmp = path.pathNode.getLast();
-					path.pathNode.removeLast();		
-					if(newNIB.get(ASnumSrcTmp).containsKey(ASnumDestTmp)){
-						Neighbor neighborTmp = newNIB.get(ASnumSrcTmp).get(ASnumDestTmp);
-						neighborTmp.attribute.bandwidth -= pathBandwidth;
-						if(!(neighborTmp.attribute.bandwidth>0))
-							newNIB.get(ASnumSrcTmp).remove(ASnumDestTmp);
-						else
-							newNIB.get(ASnumSrcTmp).put(ASnumDestTmp,neighborTmp);
+				if(!path.pathNodes.isEmpty()){
+					ASNumDestTmp = path.pathNodes.getLast();
+					path.pathNodes.removeLast();
+				
+					while(!path.pathNodes.isEmpty()){
+						ASNumSrcTmp = path.pathNodes.getLast();
+						path.pathNodes.removeLast();		
+						if(newNIB.get(ASNumSrcTmp.ASNum).containsKey(ASNumDestTmp.ASNum)){
+							Link neighborTmp = newNIB.get(ASNumSrcTmp.ASNum).get(ASNumDestTmp.ASNum);
+							neighborTmp.bandWidth -= pathBandwidth;
+							if(neighborTmp.bandWidth>0)
+								newNIB.get(ASNumSrcTmp.ASNum).put(ASNumDestTmp.ASNum,neighborTmp);
+							else
+								newNIB.get(ASNumSrcTmp.ASNum).remove(ASNumDestTmp.ASNum);
+						}
+						ASNumDestTmp = ASNumSrcTmp;
 					}
-					ASnumDestTmp = ASnumSrcTmp;
+					if(newNIB.get(path.srcASNum).containsKey(ASNumDestTmp.ASNum)){
+						Link neighborTmp = newNIB.get(path.srcASNum).get(ASNumDestTmp.ASNum);
+						neighborTmp.bandWidth -= pathBandwidth;
+						if(neighborTmp.bandWidth>0)
+							newNIB.get(path.srcASNum).put(ASNumDestTmp.ASNum,neighborTmp);
+						else
+							newNIB.get(path.srcASNum).remove(ASNumDestTmp.ASNum);
+					}
 				}
 			}
 		}
@@ -265,54 +302,62 @@ public class MultiPath {
 	
 	/**
 	 *  update the inter-domain path
-	 * @param ASnumSrc
+	 * @param ASNumSrc
 	 * @param NIB
-	 * @param ASnodeNumList
+	 * @param ASNodeNumList
 	 * @param pathKey (the shortest:0; the disjoint:1; the second shortest:2)
 	 * @author xftony
 	 */
-	public void updatePath(Integer ASnumSrc, Map<Integer,Map<Integer,Neighbor>>NIB, Set<Integer> ASnodeNumList, int pathKey){
+	public void updatePath(Integer ASNumSrc, Map<Integer,Map<Integer,Link>>NIB, Set<Integer> ASNodeNumList, int pathKey){
 		if(NIB.isEmpty()){
 			System.out.printf("~~NIB is empty~~");
 			return;
 		}
-		Map<Integer,Map<Integer,Neighbor>> newNIB = null ;//= new HashMap<Integer,Map<Integer,Neighbor>>(); ;
+		Map<Integer,Map<Integer,Link>> newNIB = null ;//= new HashMap<Integer,Map<Integer,Link>>(); ;
 		if(this.RIBFromlocal.isEmpty())
 			pathKey = 0;
 		if(pathKey == 0){
-			MultiPathInit(ASnumSrc, NIB, ASnodeNumList);
+			MultiPathInit(ASNumSrc, NIB, ASNodeNumList);
 			calculatePath(NIB);
-			updateRIBFromLocal(ASnumSrc, 0, 0, ASnodeNumList);
-			for(int iKey=1; iKey<MaxPathNum; iKey++){
-				for(int ASnumDest:ASnodeNumList){
-					if(ASnumSrc==ASnumDest)
+			updateRIBFromLocal(NIB, ASNumSrc, 0, 0, ASNodeNumList);
+			for(int iKey=1; iKey<maxPathNum; iKey++){
+				for(int ASNumDest:ASNodeNumList){
+					if(ASNumSrc==ASNumDest)
 						continue;
-					newNIB = updateNIB(NIB, ASnumDest, iKey);
-					MultiPathInit(ASnumSrc, newNIB, ASnodeNumList);
+					newNIB = updateNIB(NIB, ASNumDest, iKey);
+					MultiPathInit(ASNumSrc, newNIB, ASNodeNumList);
 					calculatePath(newNIB);
-					updateRIBFromLocal(ASnumSrc, ASnumDest, iKey, ASnodeNumList);
+					updateRIBFromLocal(NIB, ASNumSrc, ASNumDest, iKey, ASNodeNumList);
 				}
 			}
 		}
 		else{
-			for(int iKey=pathKey; iKey<MaxPathNum; iKey++){
-				for(int ASnumDest:ASnodeNumList){
-					if(ASnumSrc==ASnumDest)
+			for(int iKey=pathKey; iKey<maxPathNum; iKey++){
+				for(int ASNumDest:ASNodeNumList){
+					if(ASNumSrc==ASNumDest)
 						continue;
-					newNIB = updateNIB(NIB, ASnumDest, iKey);
-					MultiPathInit(ASnumSrc, newNIB, ASnodeNumList);
+					if(ASNumDest==601){
+						ASNumDest = 601;
+					}
+					newNIB = updateNIB(NIB, ASNumDest, iKey);
+					MultiPathInit(ASNumSrc, newNIB, ASNodeNumList);
 					calculatePath(newNIB);
-					updateRIBFromLocal(ASnumSrc, ASnumDest, iKey, ASnodeNumList);
+					updateRIBFromLocal(NIB, ASNumSrc, ASNumDest, iKey, ASNodeNumList);
 				}
 			}
 		}
 	}
 	
-	public int pathValue(int latency, int bandWidth){
-		if (bandWidth<0)
-			return Integer.MAX_VALUE;
+	/**
+	 * if brokenTimes>10, the link is unstable, should not be used.
+	 * @param len
+	 * @param brokenTimes
+	 * @return
+	 */
+	public int pathValue(int oldValue, int brokenTimes){
 		int Value = Integer.MAX_VALUE;
-		Value = latency + 8000 * this.confSizeMB/bandWidth;
+		if(brokenTimes < maxBroKenTime)
+			Value = oldValue + 1 + 1<<brokenTimes;
 		return Value;
 	}
 }

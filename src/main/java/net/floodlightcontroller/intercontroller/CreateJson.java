@@ -90,7 +90,7 @@ public class CreateJson {
 		}
 		InterController.PIBWriteLock = true; //lock PIB
 		try {
-			mapper.writeValue(file, InterController.PIB);
+			mapper.writeValue(file, InterController.myPIB);
 		} catch (JsonGenerationException e) {
 			// TODO Auto-generated catch block
 			InterController.PIBWriteLock = false;

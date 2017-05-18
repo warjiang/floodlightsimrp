@@ -5,15 +5,15 @@ import java.net.UnknownHostException;
 
 
 
-public  class IPperfix {
+public  class IPPrefix {
 	InetAddress IP;
 	Integer mask;
-	int ipPerfixInt;
+	int ipPrefixInt;
 	
-	public IPperfix(){
+	public IPPrefix(){
 	//	this.IP = InetAddress.getAllByName(0);
-		this.mask = 0;
-		this.ipPerfixInt = 0;
+		this.mask = 24;
+		this.ipPrefixInt = 0;
 	}
 	
 	public InetAddress getIP(){
@@ -24,14 +24,14 @@ public  class IPperfix {
 		return this.mask;
 	}
 	
-	public IPperfix clone(){
-		IPperfix res = new IPperfix();
+	public IPPrefix clone(){
+		IPPrefix res = new IPPrefix();
 		res.IP   = this.IP;
 		res.mask = this.mask;
-		if(this.ipPerfixInt == 0 && this.IP!=null)
-			res.ipPerfixInt = IP2perfix(this.IP.toString(), this.mask);
+		if(this.ipPrefixInt == 0 && this.IP!=null)
+			res.ipPrefixInt = IP2perfix(this.IP.toString(), this.mask);
 		else
-			res.ipPerfixInt = this.ipPerfixInt;
+			res.ipPrefixInt = this.ipPrefixInt;
 		return res;
 	}
 	
@@ -42,7 +42,7 @@ public  class IPperfix {
 			this.mask = mask;
 		else
 			this.mask = 32;
-		this.ipPerfixInt = IP2perfix(ipStr, mask);
+		this.ipPrefixInt = IP2perfix(ipStr, mask);
 	}
 	
 	public boolean ifCorrect(){
@@ -88,10 +88,10 @@ public  class IPperfix {
 	 * @param perfix
 	 * @return ip&mask
 	 */
-	public static int IP2perfix(IPperfix perfix){
-		if(perfix.IP==null)
+	public static int IP2Prefix(IPPrefix prefix){
+		if(prefix.IP==null)
 			return 0;
-		String ipAddr = perfix.IP.toString();
+		String ipAddr = prefix.IP.toString();
 		if(ipAddr.contains("/"))
 			ipAddr = ipAddr.split("/")[1]; 
 		String[] ipStr = ipAddr.split("\\."); 
@@ -100,20 +100,20 @@ public  class IPperfix {
 				|(Integer.parseInt(ipStr[1])<<16)
 				|(Integer.parseInt(ipStr[2])<<8)
 				|(Integer.parseInt(ipStr[3]));
-		int mask = 0xFFFFFFFF<<(32-perfix.mask);
+		int mask = 0xFFFFFFFF<<(32-prefix.mask);
 		return ipInt&mask;
 	}
 	
-	public static byte[] IPperfix2ByteArray(IPperfix perfix){
+	public static byte[] IPperfix2ByteArray(IPPrefix prefix){
 		byte[] bIPMask = new byte[6];
 		byte[] tmp;
 		
-		int ip = IP2perfix(perfix);
-		tmp = EncodeData.int2ByteArray(ip);
+		int ip = IP2Prefix(prefix);
+		tmp = EncodeData.Int2ByteArray(ip);
 		for (int i=0;i<4;i++)
 			bIPMask[i] = tmp[i];
 		
-		Integer mask = perfix.mask;
+		Integer mask = prefix.mask;
 		tmp = EncodeData.Integer2ByteArray(mask);
 		for(int i=0; i<2; i++)
 			bIPMask[4+i] = tmp[i];
@@ -128,7 +128,7 @@ public  class IPperfix {
 		return res;
 	}
 	
-	public boolean subNet(IPperfix perfix){
+	public boolean subNet(IPPrefix perfix){
 		//Todo 
 		//if perfix is subnet of this
 		return true;
@@ -138,7 +138,7 @@ public  class IPperfix {
 	 * @param perfix
 	 * @return true if they strictly equal with each other(ip=ip mask=mask)
 	 */
-	public boolean equals(IPperfix perfix){
+	public boolean equals(IPPrefix perfix){
 		if(this.IP!=null && perfix.IP!=null 
 				&& this.IP.equals(perfix.IP) && this.mask.equals(perfix.mask))
 			return true;
@@ -148,8 +148,8 @@ public  class IPperfix {
 	 * @param perfix
 	 * @return true if IP&mask equal
 	 */
-	public boolean perfixEquals(IPperfix perfix){
-		if(IP2perfix(this) == IP2perfix(perfix))
+	public boolean perfixEquals(IPPrefix perfix){
+		if(IP2Prefix(this) == IP2Prefix(perfix))
 			return true;
 		return false;	
 	}

@@ -7,93 +7,97 @@ import java.util.Map;
 
 public class PrintIB {
 	
-	public static void printRIB(Map<Integer,Map<Integer,Map<Integer,ASpath>>> curRIB){
+	public static void printRIB(Map<Integer,Map<Integer,Map<Integer,ASPath>>> curRIB){
 		if(curRIB.isEmpty()){
 			System.out.printf("curRIB is NULL:\n");
 			return;
 		}
 		System.out.printf("curRIB is:\n");
-		for(Map.Entry<Integer,Map<Integer, Map<Integer,ASpath>>> entryA: curRIB.entrySet())
-			for(Map.Entry<Integer, Map<Integer,ASpath>> entryB: entryA.getValue().entrySet())
-				for(Map.Entry<Integer,ASpath> entryC: entryB.getValue().entrySet()){
-					System.out.printf("%s:  %s: %s\n",entryA.getKey(), entryB.getKey(),entryC.getValue().pathNode.toString());			
+		for(Map.Entry<Integer,Map<Integer, Map<Integer,ASPath>>> entryA: curRIB.entrySet())
+			for(Map.Entry<Integer, Map<Integer,ASPath>> entryB: entryA.getValue().entrySet())
+				for(Map.Entry<Integer,ASPath> entryC: entryB.getValue().entrySet()){
+					System.out.printf("%s->%s: %s(%s)\n",
+							entryA.getKey(), entryB.getKey(),entryC.getValue().pathNodes.get(0).ASNum,entryC.getValue().pathNodes.get(0).linkID);	
+					for(int i=1; i<entryC.getValue().pathNodes.size(); i++){
+						System.out.printf("->%s(%s)",entryC.getValue().pathNodes.get(i).ASNum,entryC.getValue().pathNodes.get(i).linkID);
+					}
+					System.out.printf("\n");
 		}
 	}
-	public static void printNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
+	public static void printNIB(Map<Integer,Map<Integer,Link>> NIB){
 		if(NIB.isEmpty()){
 			System.out.printf("curNIB is NULL:\n");
 			return;
 		}
 		System.out.printf("curNIB is:\n");
-		for(Map.Entry<Integer, Map<Integer,Neighbor>> entryA: NIB.entrySet())
-			for(Map.Entry<Integer,Neighbor> entryB: entryA.getValue().entrySet()){
+		int i = 0;
+		for(Map.Entry<Integer, Map<Integer,Link>> entryA: NIB.entrySet())
+			for(Map.Entry<Integer,Link> entryB: entryA.getValue().entrySet()){
+				i++;
 				System.out.printf("src is %s dest is %s: %s->%s, connected:%s \n",
-						entryA.getKey(), entryB.getKey(),entryB.getValue().ASnodeSrc.ASnum, entryB.getValue().ASnodeDest.ASnum, entryB.getValue().started);			
+						entryA.getKey(), entryB.getKey(),entryB.getValue().ASNodeSrc.ASNum, entryB.getValue().ASNodeDest.ASNum, entryB.getValue().started);			
 			}
+		System.out.printf("curNIB total: %s Links:\n",i);
 	}
 
-	public static void printNIB2BeUpdate(Map<Integer, HashSet<Neighbor>> NIB2BeUpdate){
-		Neighbor tmp;
+	public static void printNIB2BeUpdate(Map<Integer, HashSet<Link>> NIB2BeUpdate){
+		Link tmp;
 		if(NIB2BeUpdate.isEmpty()){
 			System.out.printf("NIB2BeUpdate is NULL:\n");
 			return;
 		}
-		for(Map.Entry<Integer, HashSet<Neighbor>> entry:NIB2BeUpdate.entrySet()){
-			Iterator<Neighbor> nei = entry.getValue().iterator();
+		for(Map.Entry<Integer, HashSet<Link>> entry:NIB2BeUpdate.entrySet()){
+			Iterator<Link> nei = entry.getValue().iterator();
 			System.out.printf("############################%s:NIB need to be updated: ", entry.getKey());
 			while(nei.hasNext()){
 				tmp = nei.next();
-				System.out.printf("Neighbor:%s, %s->%s, exists:%s, connected:%s \n",
-						entry.getKey(), tmp.getASnumSrc(), tmp.getASnumDest(), tmp.exists, tmp.started);
+				System.out.printf("Link:%s, %s->%s, exist:%s, connected:%s \n",
+						entry.getKey(), tmp.getASNumSrc(), tmp.getASNumDest(), tmp.exist, tmp.started);
 			}
 		}
 	}
 	
-	public static void printRIB2BeUpdate(Map<Integer, LinkedList<ASpath>> RIB2BeUpdate){
+	public static void printRIB2BeUpdate(Map<Integer, LinkedList<ASPath>> RIB2BeUpdate){
 		if(RIB2BeUpdate.isEmpty()){
 			System.out.printf("RIB2BeUpdate is NULL:\n");
 			return;
 		}
-		for(Map.Entry<Integer, LinkedList<ASpath>> entry:RIB2BeUpdate.entrySet()){
-			//Iterator<Neighbor> nei = entry.getValue().iterator();
+		for(Map.Entry<Integer, LinkedList<ASPath>> entry:RIB2BeUpdate.entrySet()){
+			//Iterator<Link> nei = entry.getValue().iterator();
 			System.out.printf("%s:RIB to be updated:\n", entry.getKey());
-			boolean exists = true;
 			for(int i =0; i<entry.getValue().size(); i++){
-				if(0x00 != entry.getValue().get(i).type)
-					exists = false;
-				System.out.printf("RIB %s->%s : %s, exists:%s\n",
-						entry.getValue().get(i).src, entry.getValue().get(i).dest, entry.getValue().get(i).pathNode, exists);
+				System.out.printf("RIB %s->%s : %s, exist:%s\n",
+						entry.getValue().get(i).srcASNum, entry.getValue().get(i).destASNum, entry.getValue().get(i).pathNodes, entry.getValue().get(i).exist);
 			}
 		}
 	}
 	
-	public static void printNeighbor(Neighbor nei, String str){
+	public static void printNeighbor(Link nei, String str){
 		if(nei!=null)
 			System.out.printf("%s: %s -> %s type:%s connect:%s\n",
-				str,nei.getASnumSrc(), nei.getASnumDest(), nei.exists, nei.started);
+				str,nei.getASNumSrc(), nei.getASNumDest(), nei.exist, nei.started);
 	}
 	
-	public static void printNeighbor(Neighbor[] nei, String str){
+	public static void printLinks(Link[] nei, String str){
 		for(int i=0; i<nei.length; i++)
 		if(nei!=null)
 			System.out.printf("%s: %s -> %s type:%s connect:%s\n",
-				str, nei[i].getASnumSrc(), nei[i].getASnumDest(), nei[i].exists, nei[i].started);
+				str, nei[i].getASNumSrc(), nei[i].getASNumDest(), nei[i].exist, nei[i].started);
 	}
 	
 	
-	public static void printPath(ASpath path){
+	public static void printPath(ASPath path){
 		if(path!=null)
-			System.out.printf("Get ASPath from Msg: src:%s  dest:%s  Path:%s type:%s Delay:%s, pathKey: %s\n",
-				path.src, path.dest, path.pathNode, path.type, path.delay, path.pathKey);
+			System.out.printf("Get ASPath from Msg: src:%s  dest:%s, pathID: %s, Path:%s exist:%s weight:%s\n",
+				path.srcASNum, path.destASNum, path.pathID, path.pathNodes, path.exist, path.weight);
 	}
 	
 	
-	public static void printPath(LinkedList<ASpath> paths, String str){
-		ASpath path = null;
+	public static void printPath(LinkedList<ASPath> paths, String str){
+		ASPath path = null;
 		for(int i =0; i<paths.size(); i++){
 			path = paths.get(i);
-			System.out.printf("%s: src:%s  dest:%s  Path:%s type:%s Delay:%s, pathKey:%s\n", 
-					str, path.src, path.dest, path.pathNode, path.type, path.delay, path.pathKey);
+			printPath(path);
 		}
 	}
 	

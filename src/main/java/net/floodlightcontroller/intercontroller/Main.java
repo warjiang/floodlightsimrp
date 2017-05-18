@@ -11,68 +11,83 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 
 
 public class Main {
-//	public static Map<Integer,Map<Integer,Neighbor>> NIB;
+//	public static Map<Integer,Map<Integer,Link>> NIB;
 	public static void main(String[] args) throws JsonGenerationException, JsonMappingException, IOException{
 		
-		String SIMRPconfig     = "src/main/java/net/floodlightcontroller/" 
-				+"intercontroller/ASconfig/SIMRP.conf";
-		ReadConfig.readSIMRPconfigFile(SIMRPconfig);
+	//	String SIMRPconfig     = "src/main/java/net/floodlightcontroller/" 
+	//			+"intercontroller/ASconfig/SIMRP.conf";
+	//	ReadConfig.readSIMRPconfigFile(SIMRPconfig);
 		
 	    String configAddress = "src/main/java/net/floodlightcontroller/" +
 				"intercontroller/ASconfig/ASconfigTopo.conf";
 		
-		Set<Integer> ASnodeNumList;
-	//	Main.NIB = new HashMap<Integer,Map<Integer,Neighbor>>();
-		ASnodeNumList    = new HashSet<Integer>();
-		int myASnum = 60001;
+		Set<Integer> ASNumList;
+	//	Map<Integer, NeighborL> LNIB       = new HashMap<Integer, NeighborL>();
+		Map<Integer,Map<Integer,Link>> NIB = new HashMap<Integer,Map<Integer,Link>>();
+		NIB = ReadConfig.readLinksFromFile(configAddress);
+	//	NIB = CloneUtils.cloneLNIB2NIB(LNIB);	
+		ASNumList  = new HashSet<Integer>();
+		ASNumList  = getAllASNumFromNIB(NIB);
+		int myASNum = 600;
+	//	ASNumList.add(60001);
 		
+	
 		
-		InterController.NIB = ReadConfig.readNIBFromFile(configAddress);	
-		
-		
-	//	Map<Integer, Neighbor> myNeighbors = Main.NIB.get(60001);
-		ASnodeNumList    = getAllASnumFromNIB(InterController.NIB);
-		
-		MultiPath CurMultiPath       = new MultiPath();
-		CurMultiPath.updatePath(myASnum, InterController.NIB, ASnodeNumList, 0);
+		MultiPath CurMultiPath       = new MultiPath(4,1,10);
+		CurMultiPath.updatePath(myASNum, NIB, ASNumList, 0);
 		printPath(CurMultiPath.RIBFromlocal);
-		InterController.curRIB           = new HashMap<Integer,Map<Integer,Map<Integer,ASpath>>>();
-		InterController.curRIB.put(myASnum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
-		CreateJson.createNIBJson();
-		CreateJson.createRIBJson();
-		CreateJson.createPIBJson();
-		
-		printPath(InterController.curRIB.get(myASnum));
+		Map<Integer,Map<Integer,Map<Integer,ASPath>>> curRIB = new HashMap<Integer,Map<Integer,Map<Integer,ASPath>>>();
+		curRIB.put(myASNum, CloneUtils.RIBlocalClone(CurMultiPath.RIBFromlocal));
+		PrintIB.printNIB(NIB);
+		printPath(curRIB.get(myASNum), 619);
 		System.out.printf("haha");
 		
 	}
 	
-	public static void printPath(Map<Integer,Map<Integer,ASpath>> paths){
-		for(Map.Entry<Integer, Map<Integer,ASpath>> entryA: paths.entrySet())
-			for(Map.Entry<Integer,ASpath> entryB: entryA.getValue().entrySet()){
-				System.out.printf("%s, %s, %s: %s\n",
-						entryB.getKey(),entryB.getValue().bandwidth,entryB.getValue().delay,entryB.getValue().pathNode.toString());			
+	public static void printPath(Map<Integer,Map<Integer,ASPath>> paths){
+		for(Map.Entry<Integer, Map<Integer,ASPath>> entryA: paths.entrySet())
+			for(Map.Entry<Integer,ASPath> entryB: entryA.getValue().entrySet()){
+				System.out.printf("%s,%s,%s, bandWidth:%s:   ",
+						entryB.getValue().srcASNum, entryB.getValue().destASNum, entryB.getKey(), entryB.getValue().bandwidth);	
+				System.out.printf("%s(%s)", entryB.getValue().pathNodes.get(0).ASNum,entryB.getValue().pathNodes.get(0).linkID);
+				for(int i=1; i<entryB.getValue().pathNodes.size();i++)
+					System.out.printf("->%s(%s)", entryB.getValue().pathNodes.get(i).ASNum,entryB.getValue().pathNodes.get(i).linkID);
+				System.out.printf("\n");
 		}
 	}
 	
-	public static int getASnumFromNeighbors(Map<Integer, Neighbor> nodes){
+	public static void printPath(Map<Integer,Map<Integer,ASPath>> paths, int ASNumDest){
+		for(Map.Entry<Integer, Map<Integer,ASPath>> entryA: paths.entrySet())
+			for(Map.Entry<Integer,ASPath> entryB: entryA.getValue().entrySet()){
+				if(ASNumDest!=entryB.getValue().destASNum)
+					continue;
+				System.out.printf("%s,%s,%s, bandWidth:%s:   ",
+						entryB.getValue().srcASNum, entryB.getValue().destASNum, entryB.getKey(), entryB.getValue().bandwidth);	
+				System.out.printf("%s(%s)", entryB.getValue().pathNodes.get(0).ASNum,entryB.getValue().pathNodes.get(0).linkID);
+				for(int i=1; i<entryB.getValue().pathNodes.size();i++)
+					System.out.printf("->%s(%s)", entryB.getValue().pathNodes.get(i).ASNum,entryB.getValue().pathNodes.get(i).linkID);
+				System.out.printf("\n");
+		}
+	}
+	
+	public static int getASNumFromNeighbors(Map<Integer, Link> nodes){
 		int tmp = 0;
-		for(Map.Entry<Integer, Neighbor> entry: nodes.entrySet()){
-			tmp =  entry.getValue().getASnumSrc();
+		for(Map.Entry<Integer, Link> entry: nodes.entrySet()){
+			tmp =  entry.getValue().getASNumSrc();
 			break;
 		}
 		return tmp;	
 	}
 	
-	private static HashSet<Integer> getAllASnumFromNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
+	private static HashSet<Integer> getAllASNumFromNIB(Map<Integer,Map<Integer,Link>> NIB){
 		HashSet<Integer> tmp = new HashSet<Integer>();
-		for(Map.Entry<Integer,Map<Integer,Neighbor>>  entryA: NIB.entrySet())
-			for(Map.Entry<Integer,Neighbor>  entryB: entryA.getValue().entrySet()){
-			if(!tmp.contains(entryB.getValue().getASnumSrc()))
-				tmp.add(entryB.getValue().getASnumSrc());
-			if(!tmp.contains(entryB.getValue().getASnumDest()))
-				tmp.add(entryB.getValue().getASnumDest());
-		}
+		for(Map.Entry<Integer,Map<Integer,Link>>  entryA: NIB.entrySet())
+			for(Map.Entry<Integer,Link>  entryB: entryA.getValue().entrySet()){
+				if(!tmp.contains(entryB.getValue().getASNumSrc()))
+					tmp.add(entryB.getValue().getASNumSrc());
+				if(!tmp.contains(entryB.getValue().getASNumDest()))
+					tmp.add(entryB.getValue().getASNumDest());
+			}
 		return tmp;
 		
 	}

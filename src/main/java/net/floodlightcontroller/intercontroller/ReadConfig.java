@@ -13,61 +13,10 @@ import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFPort;
 
 /**
- * read the Neighbor including IP, ASnum, ouPort from file
+ * read the Link including IP, ASnum, ouPort from file
  * @author xftony
  */
 public class ReadConfig {
-	/**
-	 * 
-	 * @param fileName
-	 * @return the data stored in NIB
-	 */
-	public static Map<Integer,Map<Integer,Neighbor>> readNIBFromFile(String fileName){
-		Map<Integer,Map<Integer,Neighbor>> NIB = new HashMap<Integer,Map<Integer,Neighbor>>();
-		File file = new File(fileName);	
-		String[] tempStrSplit;
-		BufferedReader reader = null;
-		
-		try{
-			reader = new BufferedReader(new FileReader(file));
-			String tempString = null;		
-			while ((tempString=reader.readLine())!=null){
-				Neighbor tmpNeighbor = new Neighbor();	
-				tempStrSplit = tempString.split(" ");
-				if(tempStrSplit.length==12){
-					tmpNeighbor.ASnodeSrc.IPperfix.IP = InetAddress.getByName(tempStrSplit[0]);// need fix "/"
-					tmpNeighbor.ASnodeSrc.IPperfix.mask = Integer.parseInt(tempStrSplit[1]);
-					tmpNeighbor.ASnodeSrc.ASnum   = Integer.parseInt(tempStrSplit[2]);
-					tmpNeighbor.outPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[3]));
-					tmpNeighbor.outSwitch = DatapathId.of(tempStrSplit[4]);
-					tmpNeighbor.ASnodeDest.IPperfix.IP = InetAddress.getByName(tempStrSplit[5]);
-					tmpNeighbor.ASnodeDest.IPperfix.mask = Integer.parseInt(tempStrSplit[6]);
-					tmpNeighbor.ASnodeDest.ASnum   = Integer.parseInt(tempStrSplit[7]);
-					tmpNeighbor.inPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[8]));
-					tmpNeighbor.inSwitch = DatapathId.of(tempStrSplit[9]);
-					tmpNeighbor.attribute.latency = Integer.parseInt(tempStrSplit[10]);
-					tmpNeighbor.attribute.bandwidth = Integer.parseInt(tempStrSplit[11]);	
-					if(NIB.containsKey(tmpNeighbor.ASnodeSrc.ASnum))
-						NIB.get(tmpNeighbor.ASnodeSrc.ASnum).put(tmpNeighbor.ASnodeDest.ASnum,tmpNeighbor);
-					else{
-						Map<Integer, Neighbor> tmpNeighborNode = new HashMap<Integer, Neighbor>();
-						tmpNeighborNode.put(tmpNeighbor.ASnodeDest.ASnum,tmpNeighbor);
-						NIB.put(tmpNeighbor.ASnodeSrc.ASnum,tmpNeighborNode);
-					}
-				}
-			}
-			reader.close();		
-		} catch (IOException e){
-			e.printStackTrace();
-		}finally{
-			if(reader!=null)
-				try{
-					reader.close();
-				}catch(IOException e1){}
-		}
-		return NIB;
-	}
-	
 	/**
 	 * read the ASconfigForMyIP.conf, and store the data in myNeighbors
 	 * @param fileName
@@ -75,34 +24,38 @@ public class ReadConfig {
 	 * @throws SocketException
 	 * @author xftony
 	 */
-	public static Map<Integer,Neighbor> readNeighborFromFile(String fileName) throws SocketException{
-		Map<Integer, Neighbor> NeighborNode = new HashMap<Integer, Neighbor>();
+	public static Map<Integer,NeighborL> readNeighborFromFile(String fileName) throws SocketException{
+		Map<Integer, NeighborL> NeighborNode = new HashMap<Integer, NeighborL>();
 		File file = new File(fileName);	
 		String[] tempStrSplit;
-		BufferedReader reader = null;
-	//	InetAddress myIPstr = InterController.getIpAddress();
-				
+		BufferedReader reader = null;			
 		try{
 			reader = new BufferedReader(new FileReader(file));
-			String tempString = null;		
+			String tempString = null;	
+			tempString=reader.readLine();
+			if(tempString==null)
+				return NeighborNode;
+			tempStrSplit = tempString.split(" ");
+			InterController.myConf.myASNum = Integer.parseInt(tempStrSplit[0]);	
 			while ((tempString=reader.readLine())!=null){
-				Neighbor tmpNeighbor = new Neighbor();	
+				NeighborL tmpNeighbor = new NeighborL();	
 				tempStrSplit = tempString.split(" ");
-				if(tempStrSplit.length==12){
-					tmpNeighbor.ASnodeSrc.IPperfix.IP = InetAddress.getByName(tempStrSplit[0]);// need fix "/"
-					tmpNeighbor.ASnodeSrc.IPperfix.mask = Integer.parseInt(tempStrSplit[1]);
-					tmpNeighbor.ASnodeSrc.ASnum   = Integer.parseInt(tempStrSplit[2]);
-					tmpNeighbor.outPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[3]));
-					tmpNeighbor.outSwitch = DatapathId.of(tempStrSplit[4]);
-					tmpNeighbor.ASnodeDest.IPperfix.IP = InetAddress.getByName(tempStrSplit[5]);
-					tmpNeighbor.ASnodeDest.IPperfix.mask = Integer.parseInt(tempStrSplit[6]);
-					tmpNeighbor.ASnodeDest.ASnum   = Integer.parseInt(tempStrSplit[7]);
-					tmpNeighbor.inPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[8]));
-					tmpNeighbor.inSwitch = DatapathId.of(tempStrSplit[9]);
-					tmpNeighbor.attribute.latency = Integer.parseInt(tempStrSplit[10]);
-					tmpNeighbor.attribute.bandwidth = Integer.parseInt(tempStrSplit[11]);	
+				if(tempStrSplit.length>9){
+					tmpNeighbor.ASNodeDest.ASNum   = Integer.parseInt(tempStrSplit[0]);
+					tmpNeighbor.ASNodeDest.ipPrefix.IP = InetAddress.getByName(tempStrSplit[1]);
+					tmpNeighbor.ASNodeDest.ipPrefix.mask = Integer.parseInt(tempStrSplit[2]);
+					tmpNeighbor.outPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[3]));					
+					tmpNeighbor.inPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[4]));
+					tmpNeighbor.linkID = Integer.parseInt(tempStrSplit[5]);
+					tmpNeighbor.seq    = Integer.parseInt(tempStrSplit[6]);
+					tmpNeighbor.bandWidth = Integer.parseInt(tempStrSplit[7]);	
+					tmpNeighbor.outSwitch = DatapathId.of(tempStrSplit[8]);	
+					tmpNeighbor.inSwitch = DatapathId.of(tempStrSplit[9]);				
+					if(tempStrSplit.length>10){
+						tmpNeighbor.attribute.latency = Integer.parseInt(tempStrSplit[10]);
+					}
 					//update the NeighborNode
-					NeighborNode.put(tmpNeighbor.ASnodeDest.ASnum,tmpNeighbor);
+					NeighborNode.put(tmpNeighbor.ASNodeDest.ASNum,tmpNeighbor);
 				}
 			}
 			reader.close();		
@@ -136,14 +89,43 @@ public class ReadConfig {
 			while ((tempString=reader.readLine())!=null){
 				tmpStrSplitA = tempString.split(":");
 				if(tmpStrSplitA.length==2&&tmpStrSplitA[1]!=null){
-					if(tmpStrSplitA[0]=="PIBNo"){
-						tmpStrSplitB = tmpStrSplitA[1].split(" ");
+					if(tmpStrSplitA[0].contentEquals("disAllowAS")){
+						tmpStrSplitB = tmpStrSplitA[1].split(",");
 						for(int i=0; i<tmpStrSplitB.length; i++){
-							if(Integer.parseInt(tmpStrSplitA[i])!=InterController.myASNum)
-								InterController.PIB.add(Integer.parseInt(tmpStrSplitA[i]));
+							if(Integer.parseInt(tmpStrSplitB[i])!=InterController.myASNum)
+								InterController.myPIB.disAllowAS.add(Integer.parseInt(tmpStrSplitB[i]));
 							else
-								System.out.printf("!!!!%s is local AS, can not be banned", Integer.parseInt(tmpStrSplitA[i]));
+								System.out.printf("!!!!%s is local AS, can not be disAllowAS", Integer.parseInt(tmpStrSplitB[i]));
 						}
+					}
+					else if(tmpStrSplitA[0].contentEquals("sendReject")){
+						tmpStrSplitB = tmpStrSplitA[1].split(",");
+						for(int i=0; i<tmpStrSplitB.length; i++){
+							if(Integer.parseInt(tmpStrSplitB[i])!=InterController.myASNum)
+								InterController.myPIB.sendReject.add(Integer.parseInt(tmpStrSplitB[i]));
+							else
+								System.out.printf("!!!!%s is local AS, can not be sendReject", Integer.parseInt(tmpStrSplitB[i]));
+						}	
+					}
+					else if(tmpStrSplitA[0].contentEquals("simrpMsgCheckPeriod")){
+						InterController.myConf.simrpMsgCheckPeriod = Double.valueOf(tmpStrSplitA[1]);
+					}
+					else if(tmpStrSplitA[0].contentEquals("defaultThreadSleepTime")){
+						InterController.myConf.defaultThreadSleepTime = Double.valueOf(tmpStrSplitA[1]);
+					}
+					else if(tmpStrSplitA[0].contentEquals("maxPathNum")){
+						InterController.myPIB.maxPathNum = Integer.parseInt(tmpStrSplitA[1]);
+					}
+					else if(tmpStrSplitA[0].contentEquals("minBandWidth")){
+						InterController.myPIB.minBandWidth = Integer.parseInt(tmpStrSplitA[1]);
+					}
+					else if(tmpStrSplitA[0].contentEquals("mask")){
+						InterController.myConf.ipPrefix.mask = Integer.parseInt(tmpStrSplitA[1]);
+					}
+					else if(tmpStrSplitA[0].contentEquals("IPPrefix")){
+						tmpStrSplitB = tmpStrSplitA[1].split("/");
+						InterController.myConf.ipPrefix.IP   = InetAddress.getByName(tmpStrSplitB[0]); 
+						InterController.myConf.ipPrefix.mask = Integer.parseInt(tmpStrSplitB[1]);
 					}
 					else
 						conf.put(tmpStrSplitA[0], Integer.parseInt(tmpStrSplitA[1]));
@@ -159,24 +141,64 @@ public class ReadConfig {
 				}catch(IOException e1){}
 		}
 		//here can add some other conditions
-		if(conf.containsKey("SIMRPVersion")) InterController.SIMRPVersion = conf.get("SIMRPVersion");
-		if(conf.containsKey("holdingTime")) InterController.holdingTime = conf.get("holdingTime");
-		if(conf.containsKey("keepaliveTime")) InterController.keepaliveTime = conf.get("keepaliveTime");
-		if(conf.containsKey("sendHelloDuration")) InterController.sendHelloDuration = conf.get("sendHelloDuration");
-		if(conf.containsKey("sendUpdateNIBDuration")) InterController.sendUpdateNIBDuration = conf.get("sendUpdateNIBDuration");
-		if(conf.containsKey("confSizeMB")) InterController.confSizeMB = conf.get("confSizeMB");
-		if(conf.containsKey("maxPathNum")) InterController.maxPathNum = conf.get("maxPathNum");
-		if(conf.containsKey("minBandwidth")) InterController.minBandwidth = conf.get("minBandwidth");
-		if(conf.containsKey("maxLatency")) InterController.maxLatency = conf.get("maxLatency");
-		if(conf.containsKey("FLOWMOD_DEFAULT_IDLE_TIMEOUT")) InterController.FLOWMOD_DEFAULT_IDLE_TIMEOUT = conf.get("FLOWMOD_DEFAULT_IDLE_TIMEOUT");
-		if(conf.containsKey("FLOWMOD_DEFAULT_HARD_TIMEOUT")) InterController.FLOWMOD_DEFAULT_HARD_TIMEOUT = conf.get("FLOWMOD_DEFAULT_HARD_TIMEOUT");
-		if(conf.containsKey("clientReconnectTimes")) InterController.clientReconnectTimes = conf.get("clientReconnectTimes");
-		if(conf.containsKey("clientReconnectInterval")) InterController.clientReconnectInterval = conf.get("clientReconnectInterval");
-		if(conf.containsKey("startClientInterval")) InterController.startClientInterval = conf.get("startClientInterval");
-		if(conf.containsKey("serverPort")) InterController.serverPort = conf.get("serverPort");	
-		if(conf.containsKey("PIBNo")) InterController.PIB.add(conf.get("PIBNo"));
-		if(conf.containsKey("controllerOFport")) InterController.controllerOFport = OFPort.ofInt(conf.get("controllerOFport"));
+		if(conf.containsKey("ASNum")) InterController.myConf.myASNum = conf.get("ASNum");
+		if(conf.containsKey("SIMRPVersion")) InterController.myConf.SIMRPVersion = conf.get("SIMRPVersion");
+		if(conf.containsKey("holdingTime")) InterController.myConf.holdingTime = conf.get("holdingTime");
+		if(conf.containsKey("keepAliveTime")) InterController.myConf.keepAliveTime = conf.get("keepAliveTime");
+		if(conf.containsKey("FLOWMOD_DEFAULT_IDLE_TIMEOUT")) InterController.myConf.FLOWMOD_DEFAULT_IDLE_TIMEOUT = conf.get("FLOWMOD_DEFAULT_IDLE_TIMEOUT");
+		if(conf.containsKey("FLOWMOD_DEFAULT_HARD_TIMEOUT")) InterController.myConf.FLOWMOD_DEFAULT_HARD_TIMEOUT = conf.get("FLOWMOD_DEFAULT_HARD_TIMEOUT");
+		if(conf.containsKey("clientReconnectInterval")) InterController.myConf.clientReconnectInterval = conf.get("clientReconnectInterval");
+		if(conf.containsKey("clientReconnectTimes")) InterController.myConf.clientReconnectTimes = conf.get("clientReconnectTimes");
+		if(conf.containsKey("serverPort")) InterController.myConf.serverPort = conf.get("serverPort");	
+		if(conf.containsKey("controllerPort")) InterController.myConf.controllerPort = conf.get("controllerPort");
+
+		if(conf.containsKey("startClientInterval")) InterController.myConf.startClientInterval = conf.get("startClientInterval");
+		if(conf.containsKey("clientInterval")) InterController.myConf.clientInterval = conf.get("clientInterval");
+	//	if(conf.containsKey("defaultThreadSleepTime")) InterController.myConf.defaultThreadSleepTime = conf.get("defaultThreadSleepTime");
+	//	if(conf.containsKey("simrpMsgCheckPeriod")) InterController.myConf.simrpMsgCheckPeriod = conf.get("simrpMsgCheckPeriod");
+		if(conf.containsKey("sendTotalNIBTimes")) InterController.myConf.sendTotalNIBTimes = conf.get("sendTotalNIBTimes");
+
+	//	if(conf.containsKey("PIBNo")) InterController.PIB.add(conf.get("PIBNo"));
+		
 		return true;
 	}
 
+	
+	public static Map<Integer,Map<Integer,Link>> readLinksFromFile(String fileName) throws SocketException{
+		Map<Integer,Map<Integer,Link>> NIB = new HashMap<Integer,Map<Integer,Link>>();
+		File file = new File(fileName);	
+		String[] tempStrSplit;
+		BufferedReader reader = null;			
+		try{
+			reader = new BufferedReader(new FileReader(file));
+			String tempString = null;	
+			while ((tempString=reader.readLine())!=null){
+				Link tmpNeighbor = new Link();	
+				tempStrSplit = tempString.split(" ");
+				tmpNeighbor.ASNodeSrc.ASNum  = Integer.parseInt(tempStrSplit[0]);
+				tmpNeighbor.ASNodeDest.ASNum = Integer.parseInt(tempStrSplit[1]);
+				tmpNeighbor.linkID           = 1;
+				tmpNeighbor.bandWidth        = Integer.parseInt(tempStrSplit[2]);
+				tmpNeighbor.seq   		     = 1;		
+				tmpNeighbor.started          = true;
+				
+				if(NIB.containsKey(tmpNeighbor.ASNodeSrc.ASNum))
+					NIB.get(tmpNeighbor.ASNodeSrc.ASNum).put(tmpNeighbor.ASNodeDest.ASNum, tmpNeighbor.clone());
+				else{
+					Map<Integer, Link> Links = new HashMap<Integer, Link>();
+					Links.put(tmpNeighbor.ASNodeDest.ASNum,tmpNeighbor);
+					NIB.put(tmpNeighbor.ASNodeSrc.ASNum, Links);
+				}
+			}
+			reader.close();		
+		} catch (IOException e){
+			e.printStackTrace();
+		}finally{
+			if(reader!=null)
+				try{
+					reader.close();
+				}catch(IOException e1){}
+		}
+		return NIB;
+	}
 }

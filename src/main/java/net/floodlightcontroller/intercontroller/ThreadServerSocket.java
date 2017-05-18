@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 
 import org.python.modules.time.Time;
@@ -11,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * server always has a larger ASnum
+ * server always has a larger ASNum
  * @author xftony
  */
 public class ThreadServerSocket implements Runnable{
@@ -22,29 +23,21 @@ public class ThreadServerSocket implements Runnable{
 	public ThreadServerSocket(Socket s){
 		socket = s;
 		try{			
-			clientASNum = InterController.getASnumFromSocket(this.socket);
+			clientASNum = InterController.getASNumFromSocket(this.socket);
 			InterController.startTheConnectionInNIB(clientASNum);
-			updateNIB.updateASnum2neighborASNumList(clientASNum, true);
-			updateNIB.updateNIB2BeUpdate(InterController.NIB.get(InterController.myASNum).get(clientASNum), true);
-			
-			//it's not finished, because it needs to measure the link (latency&bandwidth).
-			//However, it will not be used if the conf is correct.
-			/*			
-			Neighbor tmp = new Neighbor();
-			tmp.ASnodeSrc.ASnum  = InterController.myASnum;
-			tmp.ASnodeDest.ASnum = clientASnum;
-			if(updateNIB.updateNIBAddNeighbor(tmp)){
-				CreateJson.createNIBJson();
-				if(updateRIB.updateRIBFormNIB())
-					CreateJson.createRIBJson();
-			}
-			*/		
-		//	this.run();
+			UpdateNIB.updateASNum2neighborASNumList(clientASNum, true);
+			UpdateNIB.updateNIB2BeUpdate(InterController.NIB.get(InterController.myASNum).get(clientASNum), true);
 			String ThreadName = "ThreadServerSocket-" + clientASNum;
 			Thread t1 = new Thread(new ThreadServerSocket0(),ThreadName);
 			t1.start();
 			
 		}catch (Exception e){ e.printStackTrace();}
+	}
+
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		
 	}
 	
 	public byte[] splitMsg(byte[] msg){
@@ -70,8 +63,8 @@ public class ThreadServerSocket implements Runnable{
 		
 		public InputStream in =null;
 		public OutputStream out = null;
-		public int keepAliveTime   = 200000; //5min
-		private boolean helloFlag = false;
+		public int KeepAliveTime   = 200000; //5min
+		private boolean openFlag = false;
 		private byte msgType = (byte)0x00;
 		
 		long timePre ; // store the system time  ms
@@ -83,7 +76,6 @@ public class ThreadServerSocket implements Runnable{
 			byte[] msg =null, msgIn=null,msgRemain=null;
 			byte[] myMsg ;	
 			boolean socketAliveFlag = true;
-			byte keepaliveFlag = 0x00;
 			boolean sendTotalNIB = true;
 			int sendTotalNIBTimes = 0;
 			long timeFirstUpdateNIB = 0;
@@ -94,12 +86,11 @@ public class ThreadServerSocket implements Runnable{
 			try {				
 				in  = socket.getInputStream();
 				out = socket.getOutputStream();				
-				String socketAddress = socket.getInetAddress().toString();
 				log.info("serverSocket for {} is start ",clientASNum);
 
 				while(socket.isConnected() && socketAliveFlag){
 					timeCur = System.currentTimeMillis()/1000;
-					msgIn = HandleSIMRP.doRead(in, socketAddress);
+					msgIn = HandleSIMRP.doRead(in, clientASNum);
 					if(msgIn==null) //connect failed
 						break;
 					//if msg is not null, handle the msg, maybe not one msg coming at the same time
@@ -107,7 +98,7 @@ public class ThreadServerSocket implements Runnable{
 						msgRemain = msgIn;
 						while(msgRemain!=null && msgRemain.length>0){
 							msgIn = msgRemain;
-							int msgLen = DecodeData.byte2Int(msgIn,8);
+							int msgLen = DecodeData.getMsgLen(msgIn);
 							int remainLen = msgIn.length - msgLen;
 							if(remainLen>0){
 								msgRemain = new byte[remainLen];//may have the out of memory Error
@@ -124,12 +115,12 @@ public class ThreadServerSocket implements Runnable{
 							}//else
 							if(msgLen==0)
 								continue;
-							//only one side need to send keepalive msg, which means keepalive msg is work for both side. 
+							//only one side need to send KeepAlive msg, which means KeepAlive msg is work for both side. 
 							//timePre = System.currentTimeMillis()/1000; 
-							msgType = HandleSIMRP.handleMsg(msg, this.out, helloFlag, socketAddress);
+							msgType = HandleSIMRP.handleMsg(msg, this.out, openFlag, clientASNum);
 							//distinguish msg
 							if(msgType==(byte)0x13) // the other side is ready
-								helloFlag = true;
+								openFlag = true;
 							
 							//server is not ready but client start to send the msg, should be killed
 							else if(msgType==0x02||msgType==0x03||msgType==0x04)
@@ -138,60 +129,62 @@ public class ThreadServerSocket implements Runnable{
 							else if(msgType==0x21)
 								sendTotalNIB = false;
 							
-							else if((msgType&0xf0)==(byte)0x30){ //get updateNIB msg
-								//it's updateNIB so flag TN 010?
-								keepaliveFlag = (byte)(keepaliveFlag|0x04); 
-								if((msgType&0x04)==(byte)0x04) 
-									keepaliveFlag = (byte)(keepaliveFlag|0x01);
-								
-								myMsg = EncodeData.creatKeepalive(InterController.myASNum, InterController.keepaliveTime, keepaliveFlag );							
-								if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "keepaliveTN", socketAddress))
-									break;								
-								timePre = System.currentTimeMillis()/1000;
-								
-								//remove the TN and TR;	
-								keepaliveFlag = (byte)(keepaliveFlag&0xf9); 			
-							}
-							else if((msgType&0xf0)==(byte)0x40){//get updateRIB msg
-								//it's updateNIB so flag TR 001?
-								keepaliveFlag = (byte)(keepaliveFlag|0x02); 
-								myMsg = EncodeData.creatKeepalive(InterController.myASNum, InterController.keepaliveTime, keepaliveFlag );
-								if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "keepaliveTR", socketAddress))
+							//get UpdateNIB or UpdateRIB msg	
+							else if((msgType&0xf0)==(byte)0x30 || (msgType&0xf0)==(byte)0x40){ 
+								 //it's UpdateNIB so flag TN 010?
+								myMsg = EncodeData.creatKeepAlive(InterController.myConf.myASNum );
+								if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.myConf.doWriteRetryTimes, "keepalive TN/TR", clientASNum))
 									break;	
 								timePre = System.currentTimeMillis()/1000;
-								
-								//remove the TN and TR;
-								keepaliveFlag = (byte)(keepaliveFlag&0xf9); 
+								//remove the TN and TR;		
 							}
 							else if((msgType) == (byte)0x00)
 								break;
 						}		
 					}
 									
-					//send keepalive msg
-					if(helloFlag && (timeCur-timePre > InterController.keepaliveTime)){
-						myMsg = EncodeData.creatKeepalive(InterController.myASNum, InterController.keepaliveTime, keepaliveFlag );
-						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "Regular keepalive", socketAddress))
+					//send KeepAlive msg
+					if(openFlag && (timeCur-timePre > InterController.myConf.keepAliveTime)){
+						myMsg = EncodeData.creatKeepAlive(InterController.myASNum);
+						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.myConf.doWriteRetryTimes, "Regular KeepAlive", clientASNum))
 							break;					
 						timePre = System.currentTimeMillis()/1000;
 					}
 					
 					//send msg with total NIB 
-					if(helloFlag 
+					if(openFlag 
 							&& sendTotalNIB
-							&& (timeCur-timeFirstUpdateNIB >InterController.sendUpdateNIBDuration)){
+							&& (timeCur-timeFirstUpdateNIB >InterController.myConf.sendUpdateNIBDuration)){
 						timeFirstUpdateNIB = System.currentTimeMillis()/1000;
 						sendTotalNIBTimes ++;
-						if(sendTotalNIBTimes > InterController.sendTotalNIBTimes) 
+						if(sendTotalNIBTimes > InterController.myConf.sendTotalNIBTimes) 
 							socketAliveFlag = false; //kill the socket, client will restart the connection
 						myMsg = EncodeData.creatUpdateNIB(InterController.NIB);
-						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "totalNIB", socketAddress))
+						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.myConf.doWriteRetryTimes, "totalNIB", clientASNum))
 							break;	
 						timePre = System.currentTimeMillis()/1000;
 					}
 					
+				/*	//send RIB reply
+					if(openFlag
+							&& InterController.RIB2BeReply.containsKey(clientASNum)
+							&& !InterController.RIB2BeReply.get(clientASNum).isEmpty()){
+						LinkedList<ASPath> paths = new LinkedList<ASPath>();
+						for(int i=0; i<256; i++){
+							if(InterController.RIB2BeReply.get(clientASNum).isEmpty())
+								break;
+							paths.add(InterController.RIB2BeReply.get(clientASNum).getFirst().clone());
+							InterController.RIB2BeReply.get(clientASNum).removeFirst();
+						}
+						
+						myMsg = EncodeData.creatKeepAlive(InterController.myConf.myASNum, paths);
+						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.myConf.doWriteRetryTimes, "KeepAlive Reply", clientASNum))
+							break;	
+						timePre = System.currentTimeMillis()/1000;		
+					} */
+					
 					//after hello,  do update the NIB
-					if(helloFlag 
+					if(openFlag 
 							&& InterController.updateNIBFlagTotal 
 							&& InterController.updateFlagNIB.containsKey(clientASNum)
 							&& InterController.updateFlagNIB.get(clientASNum)){
@@ -200,7 +193,7 @@ public class ThreadServerSocket implements Runnable{
 						}
 						InterController.updateNIBWriteLock = true;
 						if(!InterController.NIB2BeUpdate.containsKey(clientASNum)){
-							HashSet<Neighbor> tmpHashSet = new HashSet<Neighbor>();
+							HashSet<Link> tmpHashSet = new HashSet<Link>();
 							InterController.NIB2BeUpdate.put(clientASNum, tmpHashSet);
 							InterController.updateNIBWriteLock = false;
 							continue;
@@ -208,30 +201,34 @@ public class ThreadServerSocket implements Runnable{
 						int len = InterController.NIB2BeUpdate.get(clientASNum).size();
 						if(len<=0) {
 							//len should be >0
-							System.out.printf("Error! %s :InterController.NIB2BeUpdate.get(clientASnum).size() = 0", socket.getInetAddress());
+							System.out.printf("Error! %s :InterController.NIB2BeUpdate.get(clientASNum).size() = 0", clientASNum);
 							InterController.updateFlagNIB.put(clientASNum, false);
 							InterController.updateNIBWriteLock = false;
 							continue;
 						}
-						Neighbor[] neighborSections = new Neighbor[len]; 
+						Link[] neighborSections = new Link[len]; 
 						int i = 0;
-						for(Neighbor ASNeighbor: InterController.NIB2BeUpdate.get(clientASNum))
-							neighborSections[i++] = ASNeighbor;				
-						myMsg = EncodeData.creatUpdateNIB(len, neighborSections); //update single AS's NIB
-						str = "***************Sending updateNIB to " + clientASNum;
-						PrintIB.printNeighbor(neighborSections, str);
-						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "updateNIB", socketAddress)){
+						for(Link ASNeighbor: InterController.NIB2BeUpdate.get(clientASNum)){
+							if(i>4095)
+								break;
+							neighborSections[i++] = ASNeighbor;		
+							InterController.NIB2BeUpdate.get(clientASNum).remove(ASNeighbor);		
+						}		
+						myMsg = EncodeData.creatUpdateNIB(neighborSections); //update single AS's NIB
+						str = "***************Sending UpdateNIB to " + clientASNum;
+						PrintIB.printLinks(neighborSections, str);
+						if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.myConf.doWriteRetryTimes, "UpdateNIB", clientASNum)){
 							InterController.updateNIBWriteLock = false;
 							break;	
 						}
 						timePre = System.currentTimeMillis()/1000;
-						InterController.NIB2BeUpdate.remove(clientASNum);
+					//	InterController.NIB2BeUpdate.remove(clientASNum);
 						InterController.updateFlagNIB.put(clientASNum, false);
 						InterController.updateNIBWriteLock = false;		
 					}
 					
 					//after hello,  do update the RIB
-					if(helloFlag && InterController.updateRIBFlagTotal 
+					if(openFlag && InterController.updateRIBFlagTotal 
 							&& InterController.updateFlagRIB.containsKey(clientASNum)
 							&& InterController.updateFlagRIB.get(clientASNum)){
 						while(InterController.updateRIBWriteLock){
@@ -240,37 +237,48 @@ public class ThreadServerSocket implements Runnable{
 						InterController.updateRIBWriteLock = true;
 						if(InterController.RIB2BeUpdate.containsKey(clientASNum)
 								&&!InterController.RIB2BeUpdate.get(clientASNum).isEmpty()){
-							myMsg = EncodeData.creatUpdateRIB(InterController.RIB2BeUpdate.get(clientASNum));
-							str = "***************Sending updateRIB to " + clientASNum;
+							LinkedList<ASPath> paths = new LinkedList<ASPath>();
+							for(int i=7; i<3*(2<<13); i++){
+								if(InterController.RIB2BeUpdate.get(clientASNum).isEmpty())
+									break;
+								i+=InterController.RIB2BeUpdate.get(clientASNum).getFirst().pathNodes.size()*3+9;
+								paths.add(InterController.RIB2BeUpdate.get(clientASNum).getFirst().clone());
+								InterController.RIB2BeReply.get(clientASNum).removeFirst();
+							}
+							
+							myMsg = EncodeData.creatUpdateRIB(paths);
+							str = "***************Sending UpdateRIB to " + clientASNum;
 							PrintIB.printPath(InterController.RIB2BeUpdate.get(clientASNum), str);
-							if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.doWriteRetryTimes, "updateRIB", socketAddress)){
+							if(!HandleSIMRP.doWirteNtimes(out, myMsg, InterController.myConf.doWriteRetryTimes, "UpdateRIB", clientASNum)){
 								InterController.updateRIBWriteLock = false;
 								break;	
 							}
 						}
+						
 						timePre = System.currentTimeMillis()/1000;
-						InterController.RIB2BeUpdate.remove(clientASNum);
+					//	InterController.RIB2BeUpdate.remove(clientASNum);
 						InterController.updateFlagRIB.put(clientASNum, false);
 						InterController.updateRIBWriteLock = false;
 					}		
 	
 					//if get no msg for too long time, kill the socket
-					if(timeCur-timePre > InterController.holdingTime)
+					if(timeCur-timePre > InterController.myConf.holdingTime)
 						socketAliveFlag = false;
 					
-					Time.sleep(InterController.simrpMsgCheckPeriod);
+					Time.sleep(InterController.myConf.simrpMsgCheckPeriod);
 				}
-				log.info("this serverSocket thread: {} will stop******", socket);
 				
+				
+				log.info("this serverSocket thread: {} will stop******", socket);
 				//remove the entry in MmySockets
 				for(Map.Entry<Integer, Socket> entry: InterController.mySockets.entrySet()){
 					if(entry.getValue().equals(socket)){
 						InterController.mySockets.remove(entry.getKey());
-						updateNIB.updateASnum2neighborASNumList(entry.getKey(), false);		
-						updateNIB.updateNIBDeleteNeighborBilateral(InterController.NIB.get(InterController.myASNum).get(entry.getKey()).clone());
+						UpdateNIB.updateASNum2neighborASNumList(entry.getKey(), false);		
+						UpdateNIB.updateNIBDeleteLinkByRemoveNode(entry.getKey());
 						PrintIB.printNIB(InterController.NIB);
 						CreateJson.createNIBJson();
-						if(updateRIB.updateRIBFormNIB()){
+						if(UpdateRIB.updateRIBFormNIB()){
 							PrintIB.printRIB(InterController.curRIB);
 							CreateJson.createRIBJson();
 						}
@@ -287,10 +295,4 @@ public class ThreadServerSocket implements Runnable{
 		}		
 	}
 
-
-	@Override
-	public void run() {
-		// TODO Auto-generated method stub
-		
-	}
 }

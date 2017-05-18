@@ -37,7 +37,7 @@ public class AttributeTLV {
 		tmp1 = EncodeData.Integer2ByteArray(attr.length);
 		for(int i=0;i<2;i++)
 			bAttr[2+i] = tmp1[i];
-		tmp2 = EncodeData.int2ByteArray(attr.value);
+		tmp2 = EncodeData.Int2ByteArray(attr.value);
 		for(int i=0;i<4;i++)
 			bAttr[4+i] = tmp2[i];
 		return bAttr;

@@ -14,12 +14,12 @@ public class EncodeData {
 	 * @param x
 	 * @return byte[0]->byte[3]  high->low
 	 */
-	public static byte[] int2ByteArray(int x){
+	public static byte[] Int2ByteArray(int x){
 	//	int byteNum = (40-Integer.numberOfLeadingZeros(x<0?~x:x))/8;
 		byte[] bX = new byte[4];
-		bX[0] = (byte) ((x>>24) & 0xFF);  
-		bX[1] = (byte) ((x>>16)& 0xFF);  
-		bX[2] = (byte) ((x>>8)&0xFF);    
+		bX[0] = (byte) ((x>>>24) & 0xFF);  
+		bX[1] = (byte) ((x>>>16)& 0xFF);  
+		bX[2] = (byte) ((x>>>8)&0xFF);    
 		bX[3] = (byte) (x & 0xFF); 
 		return bX;			
 	}
@@ -30,7 +30,7 @@ public class EncodeData {
 	public static byte[] Integer2ByteArray(Integer x){
 		byte[] bX = new byte[2];
 		bX[1] = x.byteValue();
-		x = x>>>8; //>>> unsign switch(swithc with sign)
+		x = x>>>8; //>>>> unsign switch(swithc with sign)
 		bX[0] = x.byteValue();
 		return bX;
 	}
@@ -60,7 +60,7 @@ public class EncodeData {
 	}
 	
 	public byte[] creatXid(int xid){	
-		return int2ByteArray(xid);
+		return Int2ByteArray(xid);
 	}
 	
 	
@@ -74,511 +74,479 @@ public class EncodeData {
 		return sum;
 	}
 
-	/**
-	 * head
-	 * **************************************
-	 *   protocol      |   type
-	 *                xid
-	 *               length
-	 * **************************************
-	 * @param data
-	 * @param startByte
-	 * @return
-	 * @author xftony
-	 */	
-	public static byte[] setHead(byte[] data,byte[] type, byte[] bXid){
-		//byte[] data = new byte[len];
-		if(data==null) //head is added after the message is created
-			return null;
-		data[0] = (byte) 0xff;
-		data[1] = 0x01;    //protocol is SIMRP
-		data[2] = type[0]; //message type
-		data[3] = type[1];
-		for(int i=0;i<4;i++)
-			data[4+i] = bXid[i];
-		return data;
-	}
+
 
 	public static byte[] NodeList2ByteArray(LinkedList<Integer> pathNode){
 		int len = pathNode.size();
 		byte[] res = new byte[len*2];
 		byte[] tmp;
 		for(int i=0; i <len; i++){
-			tmp = int2ByteArray(pathNode.get(i));
+			tmp = Int2ByteArray(pathNode.get(i));
 			for(int j=0; j<2; j++)
 				res[2*i + j] = tmp[j+2]; // get the low byte
 		}
 		return res;
 	}
 	
+	/**
+	 * head
+	 * **************************************
+	 *     32     35            
+	 *  xid   type   
+	 * **************************************
+	 * @param data
+	 * @param startByte
+	 * @return
+	 * @author xftony
+	 */	
+	public static byte[] setHead(byte[] data, int xid, int type){
+		//byte[] data = new byte[len];
+		if(data==null) //head is added after the message is created
+			return null;
+		
+		byte[] tmp = new byte[4];
+		tmp[3] = (byte)0x01;
+		for(int i=0;i<4;i++)
+			data[i] = tmp[i];
+		tmp = Integer2ByteArray(type);
+		data[4] = (byte) (tmp[1]<<5);
+	
+		return data;
+	}
 	
 	/**
-	 * hello  typeInHead->0x0001
+	 * open  typeInHead->001 :0x20
 	 * ************************************
-	 *    version     |  holdingTime
-	 *    ASnumber    |
-	 *               TLV
-	 *       F        |   checkSum
-	 * ************************************
+	 *            3       4  5        21           33            45        
+	 *    version| OptF |F |ASNumber| holdingTime |keepAliveTime
+	 *    0      8               
+	 *    OptLen|Tlv       
+	 *    	 * ************************************
 	 * @param version
 	 * @param holdingTime
-	 * @param myASnum
+	 * @param myASNum
 	 * @param attr
 	 * @param flag
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatHello(Integer version, Integer holdingTime, int myASnum, AttributeTLV[] attr, byte flag){
-		int len =24 ;
-		if(attr!=null)
-			len = 24+8*attr.length; //4*(3+3+2*attr.len)  head + hello_1 + hello_2
-		byte[] hello = new byte[len];
+	public static byte[] creatOpen(int version, int holdingTime, int keepAliveTime, int myASNum, AttributeTLV[] attr, boolean flag){
+		int len = 10 ;
+		byte optLen = 0x00;
+		if(attr!=null){
+			optLen = 0x02;
+			len = 11 + 8*attr.length; 
+		}
+		byte[] open = new byte[len];
 		byte[] tmp;	
 		
 		//creat mag head
-		byte[] type = new byte[2];
-		type[0] = (byte)0x00;
-		type[1] = (byte)0x01;
-		byte[] bXid = new byte[4];
-		bXid[3] = (byte)0x01;
-		hello = setHead(hello, type, bXid);					
-		tmp = int2ByteArray(len);
-		for(int i =0; i<4; i++)
-			hello[8+i] = tmp[i];
-		
+		open = setHead(open, 1, 1);	 //xid =1 ; type =1
 		tmp = Integer2ByteArray(version);
-		for(int i=0; i<2; i++)
-			hello[12+i] = tmp[i];
-		tmp = Integer2ByteArray(holdingTime); // s
-		for(int i=0; i<2; i++)
-			hello[14+i] = tmp[i];
-		tmp = int2ByteArray(myASnum);
+		byte bFlag = 0x00;
+		if(flag)
+			bFlag = 0x01;
+		open[4] = (byte) ((byte)open[4] | (tmp[1]<<2) | optLen|bFlag);
+		
+		tmp = Integer2ByteArray(myASNum);
 		for(int i =0; i<2; i++)
-			hello[16+i] = tmp[i+2];
+			open[5+i] = tmp[i];
+		
+		tmp = Integer2ByteArray(holdingTime); //holdingTime
+		open[7] = (byte)(tmp[0]<<4);
+		open[7] = (byte)((byte)open[7] | (tmp[1]>>>4));
+		open[8] = (byte)(tmp[1]<<4);
+		
+		tmp = Integer2ByteArray(keepAliveTime); // keepAliveTime
+		open[8] = (byte) ((byte)open[8] | (tmp[0]<<4));
+		open[9] = tmp[1];
+		
 		if(attr!=null) {
+			tmp = Integer2ByteArray(attr.length); // OptLen should < 256
+			open[10] = tmp[1];
+			
 			for(int i=0; i<attr.length; i++){
 				tmp = AttributeTLV.attributeTLV2ByteArray(attr[i]);
 				for(int j=0; j<8; j++)
-					hello[20+8*i+j] = tmp[j];
+					open[10+8*i+j] = tmp[j];
 			}
-			hello[20+8*attr.length]   = 0x00;
-			hello[20+8*attr.length+1] = flag;
-			tmp = checkSum(hello, 8);
-			for(int i=0; i<2; i++)
-				hello[20+8*attr.length+2+i] = tmp[i];
-			return hello;
-		}
-		hello[20]   = 0x00;
-		hello[21] = flag;
-		tmp = checkSum(hello, 8);
-		for(int i=0; i<2; i++)
-			hello[22+i] = tmp[i];
-		return hello;		
+		}	
+		return open;		
 	}
 	
 	
 	/**
-	 * keepalive typeInHead -> 0x0002
+	 * keepAlive typeInHead -> 0x0002
 	 * ************************************
-	 *               head
-	 *      AS number  |    keeptime
-	 *             timestamp
-	 *         TN TR   |    checkSum
+	 *      4         5       |6    |7   
+	 *            1            13    29
+	 *     |    F| timestamp  | ASNum
+	 *         
 	 * *************************************        
 	 * xid did not be used now.  
 	 * @author xftony  
 	 */
-	public static byte[] creatKeepalive(int myASnum, int keepTime, byte flag){
-		int len = 24; //4*(3+3)
-		byte[] keepalive = new byte[len]; //
+	public static byte[] creatKeepAlive(int myASNum){
+		int len = 8; 
+		byte[] keepAlive = new byte[len]; //
 		byte[] tmp;
 		
 		//creat msg head
-		byte[] type = new byte[2];
-		type[0] = (byte)0x00;
-		type[1] = (byte)0x02;
-		byte[] bXid = new byte[4];
-		bXid[3] = (byte)0x02;
-		keepalive = setHead(keepalive, type, bXid);					
-		tmp = int2ByteArray(len);
-		for(int i =0; i<4; i++)
-			keepalive[8+i] = tmp[i];
-		//creat keepalive msg
-		tmp = int2ByteArray(len);
-		for(int i =0; i<4; i++)
-			keepalive[8+i] = tmp[i];
-		tmp = int2ByteArray(myASnum);
-		for(int i =0; i<2; i++)
-			keepalive[12+i] = tmp[i+2];
-		tmp = int2ByteArray(keepTime); //ms
-		for(int i =0; i<2; i++)
-			keepalive[14+i] = tmp[i+2];
+		keepAlive = setHead(keepAlive, 2, 2);	
+		
+	//	byte bFlag = 0x00;
+		
+	//	keepAlive[4] = (byte)(keepAlive[4] | (bFlag<<4));
+		
 		long timeStamp = System.currentTimeMillis();
 		tmp = long2ByteArray(timeStamp);
-		for(int i=0; i <4; i++)
-			keepalive[16+i] = tmp[4+i]; //only use the low 4byte  ms
-		keepalive[21] = flag;
-		tmp = checkSum(keepalive, 8);
-		for(int i=0; i<2; i++)
-			keepalive[22+i] = tmp[i];
-		return keepalive;
+		keepAlive[4] = (byte)(keepAlive[4] | (0x0f & tmp[6]));
+		keepAlive[5] = tmp[7];
+		
+		tmp = Int2ByteArray(myASNum);
+		for(int i =0; i<2; i++)
+			keepAlive[6+i] = tmp[i+2];
+		
+		return keepAlive;
+	}
+	
+	public static byte[] pathReply2Byte(LinkedList<ASPath> paths){
+		int len = 5*paths.size();
+		byte[] res = new byte[len];
+		byte[] tmp;
+		byte bFlag = 0x00;
+		for(int i=0; i<paths.size(); i++ ){
+			bFlag = 0x00;
+			if(paths.get(i).started)
+				bFlag = 0x01;
+			
+			res[5*i] = (byte) (bFlag<<7);
+			tmp = Integer2ByteArray(paths.get(i).pathID);
+			res[5*i] = (byte) (res[5*i] |(0x7f&tmp[1]));
+			
+			tmp = Integer2ByteArray(paths.get(i).srcASNum);
+			for(int j=0; j<2; j++)
+				res[5*i+1+j] = tmp[j+2];
+			
+			tmp = Integer2ByteArray(paths.get(i).destASNum);
+			for(int j =0; j<2; j++)
+				res[5*i+3+j] = tmp[j+2];
+		}
+		return res;
+	}
+	
+	public static byte[] creatKeepAlive(int myASNum, LinkedList<ASPath> paths){
+		int len = 5*paths.size(); 
+		byte[] keepAlive = new byte[9+ len]; //
+		byte[] tmp;
+		
+		//creat msg head
+		keepAlive = setHead(keepAlive, 2, 2);	
+		
+		byte bFlag = 0x01;
+		keepAlive[4] = (byte)(keepAlive[4] |(bFlag<<4));
+		
+		long timeStamp = System.currentTimeMillis();
+		tmp = long2ByteArray(timeStamp);
+		keepAlive[4] = (byte)(keepAlive[4] | (0x0f & tmp[6]));
+		keepAlive[5] = tmp[7];
+		
+		tmp = Integer2ByteArray(myASNum);
+		for(int i =0; i<2; i++)
+			keepAlive[6+i] = tmp[i+2];
+		keepAlive[8] = (byte) paths.size();
+		
+		tmp = pathReply2Byte(paths);
+		for(int i=0; i<len; i++)
+			keepAlive[9+i] = tmp[i];
+		
+		return keepAlive;
 	}
 	
 
 	/** 
-	 * turn the neighbor to byte
-	 * length = 48
+	 * turn the neighbor to byte   16byte
+	 * length = 16 * 8
 	 * ***************************
-     *          SrcASIP         4
-     *          outPort        4*1
-	 *          outSwitchMAC   4*2
-	 *     srcASnum|srcIPmask   4
-	 *    destASnum|destIPmask  4
-	 *          DestASIP        4
-	 *          inPort          4
-	 *          inSwitchMAC    4*2
-	 * type|     latency        4
-	 * 			bandwidth       4
+     *     type        1
+     *     linkID      5
+     *     srcIPMask   5
+     *     destIPMask  5
+     *     srcASNum    16
+     *     destASNum   16
+     *     srcIP       32
+     *     destIP      32
+     *     seq         16   
 	 * @param neighborSection
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] neighborSection2Byte(Neighbor neighborSection){
+	public static byte[] link2Byte(Link link){
 		byte[] tmp;
-		byte[] data = new byte[48];
-		byte type;
+		byte[] data = new byte[20];
 		
-		tmp = IPperfix.IPperfix2ByteArray(neighborSection.ASnodeSrc.IPperfix);
-		for(int j=0; j<4; j++)
-			data[j] = tmp[j];
-		for(int j=0; j<2; j++)  //mask src
-			data[18 + j] = tmp[4+j];
-		tmp = int2ByteArray(neighborSection.outPort.getPortNumber());
-		for(int j=0; j<4; j++)
-			data[4 + j] = tmp[j];
-		tmp = long2ByteArray(neighborSection.outSwitch.getLong());
-		for(int j=0; j<8; j++)
-			data[8 + j] = tmp[j];
-		tmp = int2ByteArray(neighborSection.ASnodeSrc.ASnum);
+		byte type = 0x00;
+		if(link.started)
+			type = 0x01;
+		data[0] = (byte) (type<<7);
+		tmp = Integer2ByteArray(link.linkID);
+		tmp[1] = (byte) (0x1f&tmp[1]);
+		data[0] = (byte) (data[0]|tmp[1]<<2);
+		tmp = Integer2ByteArray(link.ASNodeSrc.ipPrefix.mask);
+		tmp[1] = (byte) (0x1f&tmp[1]);
+		tmp[0] = (byte) (tmp[1]>>>3);
+		data[0] = (byte) (data[0]|tmp[0]);
+		data[1] = (byte) (tmp[1]<<5) ;
+		tmp = Integer2ByteArray(link.ASNodeDest.ipPrefix.mask);
+		data[1] = (byte) (data[1] | (0x1f & tmp[1])); 
+		
+		tmp = Integer2ByteArray(link.ASNodeSrc.ASNum);
 		for(int j=0; j<2; j++)
-			data[16+j] = tmp[j+2];
+			data[2] = tmp[j];
 		
-		tmp = int2ByteArray(neighborSection.ASnodeDest.ASnum);
+		tmp = Integer2ByteArray(link.ASNodeDest.ASNum);
 		for(int j=0; j<2; j++)
-			data[20+j] = tmp[j+2];
-		tmp = IPperfix.IPperfix2ByteArray(neighborSection.ASnodeDest.IPperfix);
-		for(int j=0; j<4; j++)
-			data[24 + j] = tmp[j];
-		for(int j=0; j<2; j++)  //mask Dest
-			data[22+j] = tmp[4+j];
-		tmp = int2ByteArray(neighborSection.inPort.getPortNumber());
-		for(int j=0; j<4; j++)
-			data[28 + j] = tmp[j];		
-		tmp = long2ByteArray(neighborSection.inSwitch.getLong());
-		for(int j=0; j<8; j++)
-			data[32 + j] = tmp[j];
+			data[4] = tmp[j];
 		
-		tmp = int2ByteArray(neighborSection.attribute.latency);
+		tmp = Int2ByteArray(IPPrefix.IP2Prefix(link.ASNodeSrc.ipPrefix));
 		for(int j=0; j<4; j++)
-			data[40 + j] = tmp[j];
-		if(neighborSection.exists)
-			type = 0x00;
-		else
-			type = 0x40;
-		data[40] = (byte) (data[40]|type); 
-		tmp = int2ByteArray(neighborSection.attribute.bandwidth);
+			data[6] = tmp[j];
+		tmp = Int2ByteArray(IPPrefix.IP2Prefix(link.ASNodeDest.ipPrefix));
 		for(int j=0; j<4; j++)
-			data[44 + j] = tmp[j];
+			data[10] = tmp[j];
+		
+		tmp = Integer2ByteArray(link.seq);
+		for(int j=0; j<2; j++)
+			data[14] = tmp[j];
+		
+		tmp = Int2ByteArray(link.bandWidth);
+		for(int j=0; j<4; j++)
+			data[16] = tmp[j];
 		return data;
 	}
 
 	
 	/**
-	 * updateNIB  typeInHead->0x0003
-	 * length = 4*3 + (4*1 + len*48) + 2 + 2
-	 * *************************
-	 *          head           4*3
-	 *          ListLength     4*1 
-	 *          SrcASIP         4
-     *          outPort        4*1
-	 *          outSwitchMAC   4*2
-	 *     srcASnum|srcIPmask   4
-	 *    destASnum|destIPmask  4
-	 *          DestASIP        4
-	 *          inPort          4
-	 *          inSwitchMAC    4*2
-	 * type|     latency        4
-	 * 			bandwidth       4
-	 *         NULL|checkSum    4 
+	 * UpdateNIB  typeInHead->0x60
 	 *   
 	 * @param listLen
 	 * @param neighborSection
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatUpdateNIB(int listLen, Neighbor[] neighborSections){
-		int len = 4*3 + 4*1 + listLen*48 + 4;
-		byte[] update = new byte[len];
+	public static byte[] creatUpdateNIB(Link[] links){
+		int len = 6+20*links.length;
+		byte[] updateNIB = new byte[len];
 		byte[] tmp;
 		
 		//creat mag head
-		byte[] type = new byte[2];
-		type[0] = (byte)0x00;
-		type[1] = (byte)0x03;
-		byte[] bXid = new byte[4];
-		bXid[3] = (byte)0x03;
-		update = setHead(update, type, bXid);					
-		tmp = int2ByteArray(len);
-		for(int i =0; i<4; i++)
-			update[8+i] = tmp[i];
+		updateNIB = setHead(updateNIB, 3, 3);	
 		
-		tmp = int2ByteArray(listLen);
-		for(int i =0; i<4; i++)
-			update[12+i] = tmp[i];		
-		for(int i=0; i<listLen; i++){
-			tmp = neighborSection2Byte(neighborSections[i]);
-			for(int j=0; j<48; j++)
-				update[16+ 48 *i+j] = tmp[j];
+		tmp = Int2ByteArray(links.length);
+		updateNIB[4] = (byte) (updateNIB[4] | (tmp[0]&0x1f)) ;
+		updateNIB[5] = tmp[1];
+	
+		
+		for(int i=0; i<links.length; i++){
+			tmp = link2Byte(links[i]);
+			for(int j=0; j<20; j++)
+				updateNIB[6 + 20 *i+j] = tmp[j];
 		}
-		tmp = checkSum(update, 8);
-		for(int i=0; i<2; i++)
-			update[len-2+i] = tmp[i];
-		return update;
+
+		return updateNIB;
 	}
 
 
 	/**
-	 * updateNIB  typeInHead->0x0003
-	 * 4*3 + (4*1 + len*48) + 2 + 2
+	 * UpdateNIB  type 3
+	 * 
 	 * *************************
-	 *          head           4*3
-	 *          ListLength     4*1 
-	 *          SrcASIP         4
-     *          outPort        4*1
-	 *          outSwitchMAC   4*2
-	 *     srcASnum|srcIPmask   4
-	 *    destASnum|destIPmask  4
-	 *          DestASIP        4
-	 *          inPort          4
-	 *          inSwitchMAC    4*2
-	 * type|     latency        4
-	 * 			bandwidth       4
-	 *         NULL|checkSum    4 
+	 *          head           35
+	 *    		listLength     13
+	 *    		linkList       1*128
 	 *         
 	 * @param listLen
 	 * @param neighborSection
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatUpdateNIB(Neighbor neighborSection){
-		int len = 4*3 + 4*1 + 48 + 4;
-		if(!neighborSection.started)
-			return null;
-		byte[] update = new byte[len];
+	public static byte[] creatUpdateNIB(Link link){
+		int len = 6+16;
+		byte[] updateNIB = new byte[len];
 		byte[] tmp;
 		
 		//creat mag head
-		byte[] type = new byte[2];
-		type[0] = (byte)0x00;
-		type[1] = (byte)0x03;
-		byte[] bXid = new byte[4];
-		bXid[3] = (byte)0x03;
-		update = setHead(update, type, bXid);					
-		tmp = int2ByteArray(len);
-		for(int i =0; i<4; i++)
-			update[8+i] = tmp[i];
+		updateNIB = setHead(updateNIB, 3, 3);	
 		
-		tmp = int2ByteArray(1);
-		for(int i =0; i<4; i++)
-			update[12+i] = tmp[i];		
-		tmp = neighborSection2Byte(neighborSection);
-		for(int j=0; j<48; j++)
-			update[16+j] = tmp[j];
-		tmp = checkSum(update, 8);
-		for(int i=0; i<2; i++)
-			update[len-2+i] = tmp[i];
-		return update;
+		tmp = Int2ByteArray(1);
+		updateNIB[4] = (byte) (updateNIB[4] | (tmp[0]&0x1f)) ;
+		updateNIB[5] = tmp[1];
+		
+		for(int j=0; j<16; j++)
+			updateNIB[6 + j] = tmp[j];
+		
+		return updateNIB;
 	}
 
 	
 	/**
-	 * updateNIB  typeInHead->0x0003
-	 * 4*3 + (4*1 + len*48) + 2 + 2
+	 * UpdateNIB  typeInHead->0x0003
+	 *  6+16*listLen byte  *8bit   
 	 * *************************
-	 *          head           4*3
-	 *          ListLength     4*1 
-	 *          SrcASIP         4
-     *          outPort        4*1
-	 *          outSwitchMAC   4*2
-	 *     srcASnum|srcIPmask   4
-	 *    destASnum|destIPmask  4
-	 *          DestASIP        4
-	 *          inPort          4
-	 *          inSwitchMAC    4*2
-	 * type|     latency        4
-	 * 			bandwidth       4
-	 *         NULL|checkSum    4 
+	 *          head           35
+	 *    		listLength     13
+	 *    		linkList       Len*128
+	 *         
 	 *         
 	 * @param listLen
 	 * @param neighborSection
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Neighbor>> NIB){
+	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Link>> NIB){
 		int listLen = 0;
-		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
-			for(Map.Entry<Integer,Neighbor> entryB : entryA.getValue().entrySet()){
+		for(Map.Entry<Integer,Map<Integer,Link>> entryA : NIB.entrySet())  //every src
+			for(Map.Entry<Integer,Link> entryB : entryA.getValue().entrySet()){
 				if(entryB.getValue().started)
 					listLen += 1;
 			}
 		if(listLen == 0)	
 			return null;
 		
-		int len = 4*3 + 4*1 + listLen*48 + 4;
-		byte[] update = new byte[len];
+		int len = 6+16*listLen;
+		byte[] updateNIB = new byte[len];
 		byte[] tmp;
 		
-		//create msg head
-		byte[] type = new byte[2];
-		type[0] = (byte)0x00;
-		type[1] = (byte)0x03;
-		byte[] bXid = new byte[4];
-		bXid[3] = (byte)0x03;
-		update = setHead(update, type, bXid);					
-		tmp = int2ByteArray(len);
-		for(int i =0; i<4; i++)
-			update[8+i] = tmp[i];
+		//creat mag head
+		updateNIB = setHead(updateNIB, 3, 3);	
 		
-		tmp = int2ByteArray(listLen);
-		for(int i =0; i<4; i++)
-			update[12+i] = tmp[i];
+		tmp = Int2ByteArray(listLen);
+		updateNIB[4] = (byte) (updateNIB[4] | (tmp[0]&0x1f)) ;
+		updateNIB[5] = tmp[1];
+
 		int i = 0;
-		for(Map.Entry<Integer,Map<Integer,Neighbor>> entryA : NIB.entrySet())  //every src
-			for(Map.Entry<Integer,Neighbor> entryB : entryA.getValue().entrySet() ) {
+		for(Map.Entry<Integer,Map<Integer,Link>> entryA : NIB.entrySet())  //every src
+			for(Map.Entry<Integer,Link> entryB : entryA.getValue().entrySet() ) {
 				if(!entryB.getValue().started)
 					continue;
-				tmp = neighborSection2Byte(entryB.getValue());
-				for(int j=0; j<48; j++)
-					update[16+ 48 *i+j] = tmp[j];
+				tmp = link2Byte(entryB.getValue());
+				for(int j=0; j<16; j++)
+					updateNIB[6+ 16 *i+j] = tmp[j];
 				i++;
 		}
-		update[len-3] = (byte)0x01; //it's update NIB all msg
-		tmp = checkSum(update, 8);
-		for(i=0; i<2; i++)
-			update[len-2+i] = tmp[i];
-		return update;
+
+		return updateNIB;
 	}
 
 	
+	public static byte[] pathNode2Byte(PathNode pathNode){
+		byte[] data = new byte[3];
+		byte[] tmp;
+		tmp = Integer2ByteArray(pathNode.ASNum);
+		data[0] = tmp[0];
+		data[1] = tmp[1];
+		
+		tmp = Integer2ByteArray(pathNode.linkID);
+		data[2] = tmp[1];
+		
+		return data;
+	}
+	
+	public static byte[] ASPath2Byte(ASPath path){
+		int len = 9 + 3*path.pathNodes.size();
+		
+		byte[] data = new byte[len];
+		byte[] tmp;
+		if(path.exist)
+			data[0] = (byte) (1<<7);
+		
+		tmp = Integer2ByteArray(path.pathID);
+		data[0] = (byte) (data[0] | (0x7f & tmp[1]));
+		
+		tmp = Integer2ByteArray(path.pathNodes.size());
+		for(int i=0; i<2; i++)
+			data[1+i] = tmp[i];
+		
+		tmp = Integer2ByteArray(path.seq);
+		for(int i=0; i<2; i++)
+			data[3+i] = tmp[i];
+		tmp = Integer2ByteArray(path.srcASNum);
+		for(int i=0; i<2; i++)
+			data[5+i] = tmp[i];
+		tmp = Integer2ByteArray(path.destASNum);
+		for(int i=0; i<2; i++)
+			data[7+i] = tmp[i];
+		for(int i=0; i<path.pathNodes.size(); i++){
+			tmp = pathNode2Byte(path.pathNodes.get(i));
+			for(int j=0; j<3; j++)
+				data[9 + 3*i +j] = tmp[j];
+		}	
+		return data;
+	}
+	
 	/**
-	 * updateRIB typeInHead->0x0004
-	 * we just send updateRIB only when there is a new RIB to be added, will not send a deleted RIB msg.	
-	 * if you want to send the deleted RIB, just rewrite updateRIB.updateRIBFormNIB().
-	 * creat updateRIB msg by the linkedList
+	 * UpdateRIB typeInHead 4
+	 * the listLength shoud be limit; the total length should less than (2^13-1)
 	 *              head               12
 	 *              length             4
 	 *type|pathLength |   pathKey      4
-	 *    ASnumSrc    |   ASnumDest    4
+	 *    ASNumSrc    |   ASNumDest    4
 	 *             pathNode            2*len    
 	 *                | checkSum       4
-	 * @param LinkedList<ASpath> ASpaths
+	 * @param LinkedList<ASPath> ASpaths
 	 * @return  byte[12 + 4 + ASpathNum* (2+2+4+pathNode.size()*2)];
 	 * @author xftony
 	 */
-	public static byte[] creatUpdateRIB(LinkedList<ASpath> ASpaths){
-		int pathNum = ASpaths.size();
-		int nodeNum = 0;
-		for(int i=0; i< pathNum; i++)
-			nodeNum += ASpaths.get(i).pathNode.size();
-	
-		int len = 12 + 4 + pathNum*8 + nodeNum*2 + 4;
-		if(len==32)
-			len+=4;
+	public static byte[] creatUpdateRIB(LinkedList<ASPath> ASPaths){
+		int len = 7;  // 4+1+1+1
+		for(int i=0; i<ASPaths.size(); i++)
+			len +=(9 + ASPaths.get(i).pathNodes.size()*3);  
+		
 		byte[] updateRIB = new byte[len];
-		byte[] tmp;
+		byte[] tmp ;
 		
-		//creat msg head
-		byte[] type = new byte[2];
-		type[0] = (byte)0x00;
-		type[1] = (byte)0x04;
-		byte[] bXid = new byte[4];
-		bXid[3] = (byte)0x04;
-		updateRIB = setHead(updateRIB, type, bXid);					
-		tmp = int2ByteArray(len);
-		for(int i =0; i<4; i++)
-			updateRIB[8+i] = tmp[i];
+		updateRIB = setHead(updateRIB, 4, 4);	
 		
-		tmp = int2ByteArray(pathNum);
-		for(int i =0; i<4; i++)
-			updateRIB[12+i] = tmp[i];
+		tmp = Integer2ByteArray(len/3);  //3byte
+		updateRIB[4] = (byte) (updateRIB[4] | (tmp[0]&0x1f)) ;
+		updateRIB[5] = tmp[1];
 		
-		int index = 16;
-		for(int j=0; j<pathNum; j++){
-			ASpath tmpASpath = ASpaths.get(j);
-		//	if(tmpASpath.src==tmpASpath.dest||tmpASpath.pathNode.size()<=1){
-		//		continue;
-		//	}
-			tmp = int2ByteArray(tmpASpath.pathKey);
-			for(int i =0; i<2; i++)  // get 2 low byte
-				updateRIB[index+i] = tmp[i+2];	
-			updateRIB[index] = (byte)(updateRIB[index]&(tmpASpath.type));
-			tmp = int2ByteArray(tmpASpath.pathNode.size());
-			for(int i =0; i<2; i++)  // get 2 low byte
-				updateRIB[index+2+i] = tmp[i+2];	
-			tmp = int2ByteArray(tmpASpath.src);  //ASnumSrc
-			for(int i =0; i<2; i++)
-				updateRIB[index+4+i] = tmp[i+2];	
-			tmp = int2ByteArray(tmpASpath.dest);  //ASnumDest
-			for(int i =0; i<2; i++)
-				updateRIB[index+6+i] = tmp[i+2];	
-			
-			tmp = NodeList2ByteArray(tmpASpath.pathNode);
-			for(int i =0; i<tmpASpath.pathNode.size()*2; i++)  
-				updateRIB[index+8+i] = tmp[i];	
-			index += 4*2 + tmpASpath.pathNode.size()*2;
+		tmp = Integer2ByteArray(ASPaths.size());
+		updateRIB[6] = tmp[1];
+		
+		int index=0;
+		for(int i=0; i<ASPaths.size(); i++){
+			tmp = ASPath2Byte(ASPaths.get(i));
+			for(int j=0; j<tmp.length; j++){
+				updateRIB[7 + index + j] = tmp[j];
+				
+			}
+			index += tmp.length;
 		}
-		
-		tmp = checkSum(updateRIB, 8);
-		for(int i=0; i<2; i++)
-			updateRIB[len-2+i] = tmp[i];
-		
 		return updateRIB;
 	}
 	
 	
 	/**
-	 * notification typeInHead->0x0005
-	 *                   head                  3*4
-	 *  errorType|errorNum|     checkSum       1*4
-	 *  	            errorMsg
+	 * notification typeInHead 5
+	 *        head           35
+	 *  errorType|errorNum|  16
 	 *            
 	 *            
 	 * @param type
 	 * @param msg
 	 * @return
 	 */
-	public static byte[] creatNotifaction(byte errorType, byte errorNum, byte[] msg){
-		int len;
-		if(msg!=null)
-			len = 4*4 + msg.length;
-		else 
-			len = 16;
+	public static byte[] creatNotifaction(byte errorType, byte errorNum, int xid){
+		int len = 7;
 		byte[] notification = new byte[len];
 		//creat msg head
-		byte[] type = new byte[2];
-		type[0] = (byte)0x00;
-		type[1] = (byte)0x05;
-		byte[] bXid = new byte[4];
-		bXid[3] = (byte)0x05;
-		notification = setHead(notification, type, bXid);	
+		notification = setHead(notification, 5, 5);	
 		
-		notification[12] = errorType;
-		notification[13] = errorNum;
+		notification[5] = errorType;
+		notification[6] = errorNum;
 		
-		if(msg!=null)
-			for(int i=0; i<msg.length ; i++)
-				notification[16+i] = msg[i];
-					
+
 		return notification;
 		
 	}
