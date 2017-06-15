@@ -36,21 +36,23 @@ public class ReadConfig {
 			if(tempString==null)
 				return NeighborNode;
 			tempStrSplit = tempString.split(" ");
-			InterController.myConf.myASNum = Integer.parseInt(tempStrSplit[0]);	
+			InterController.myConf.myASNum       = Integer.parseInt(tempStrSplit[0]);	
+			InterController.myConf.ipPrefix.IP   = InetAddress.getByName(tempStrSplit[1]);
+			InterController.myConf.ipPrefix.mask = Integer.parseInt(tempStrSplit[2]);
 			while ((tempString=reader.readLine())!=null){
 				NeighborL tmpNeighbor = new NeighborL();	
 				tempStrSplit = tempString.split(" ");
 				if(tempStrSplit.length>9){
-					tmpNeighbor.ASNodeDest.ASNum   = Integer.parseInt(tempStrSplit[0]);
-					tmpNeighbor.ASNodeDest.ipPrefix.IP = InetAddress.getByName(tempStrSplit[1]);
+					tmpNeighbor.ASNodeDest.ASNum         = Integer.parseInt(tempStrSplit[0]);
+					tmpNeighbor.ASNodeDest.ipPrefix.IP   = InetAddress.getByName(tempStrSplit[1]);
 					tmpNeighbor.ASNodeDest.ipPrefix.mask = Integer.parseInt(tempStrSplit[2]);
-					tmpNeighbor.outPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[3]));					
-					tmpNeighbor.inPort = OFPort.ofInt(Integer.parseInt(tempStrSplit[4]));
-					tmpNeighbor.linkID = Integer.parseInt(tempStrSplit[5]);
-					tmpNeighbor.seq    = Integer.parseInt(tempStrSplit[6]);
+					tmpNeighbor.outPort   = OFPort.ofInt(Integer.parseInt(tempStrSplit[3]));					
+					tmpNeighbor.inPort    = OFPort.ofInt(Integer.parseInt(tempStrSplit[4]));
+					tmpNeighbor.linkID    = Integer.parseInt(tempStrSplit[5]);
+					tmpNeighbor.failed    = Integer.parseInt(tempStrSplit[6]);
 					tmpNeighbor.bandWidth = Integer.parseInt(tempStrSplit[7]);	
 					tmpNeighbor.outSwitch = DatapathId.of(tempStrSplit[8]);	
-					tmpNeighbor.inSwitch = DatapathId.of(tempStrSplit[9]);				
+					tmpNeighbor.inSwitch  = DatapathId.of(tempStrSplit[9]);				
 					if(tempStrSplit.length>10){
 						tmpNeighbor.attribute.latency = Integer.parseInt(tempStrSplit[10]);
 					}
@@ -93,7 +95,7 @@ public class ReadConfig {
 						tmpStrSplitB = tmpStrSplitA[1].split(",");
 						for(int i=0; i<tmpStrSplitB.length; i++){
 							if(Integer.parseInt(tmpStrSplitB[i])!=InterController.myASNum)
-								InterController.myPIB.disAllowAS.add(Integer.parseInt(tmpStrSplitB[i]));
+								InterController.myPIB.rejectAS.add(Integer.parseInt(tmpStrSplitB[i]));
 							else
 								System.out.printf("!!!!%s is local AS, can not be disAllowAS", Integer.parseInt(tmpStrSplitB[i]));
 						}
@@ -122,11 +124,6 @@ public class ReadConfig {
 					else if(tmpStrSplitA[0].contentEquals("mask")){
 						InterController.myConf.ipPrefix.mask = Integer.parseInt(tmpStrSplitA[1]);
 					}
-					else if(tmpStrSplitA[0].contentEquals("IPPrefix")){
-						tmpStrSplitB = tmpStrSplitA[1].split("/");
-						InterController.myConf.ipPrefix.IP   = InetAddress.getByName(tmpStrSplitB[0]); 
-						InterController.myConf.ipPrefix.mask = Integer.parseInt(tmpStrSplitB[1]);
-					}
 					else
 						conf.put(tmpStrSplitA[0], Integer.parseInt(tmpStrSplitA[1]));
 				}
@@ -141,9 +138,9 @@ public class ReadConfig {
 				}catch(IOException e1){}
 		}
 		//here can add some other conditions
-		if(conf.containsKey("ASNum")) InterController.myConf.myASNum = conf.get("ASNum");
+//		if(conf.containsKey("ASNum")) InterController.myConf.myASNum = conf.get("ASNum");
 		if(conf.containsKey("SIMRPVersion")) InterController.myConf.SIMRPVersion = conf.get("SIMRPVersion");
-		if(conf.containsKey("holdingTime")) InterController.myConf.holdingTime = conf.get("holdingTime");
+		if(conf.containsKey("keepAliveTimeOffSet")) InterController.myConf.keepAliveTimeOffSet = conf.get("keepAliveTimeOffSet");
 		if(conf.containsKey("keepAliveTime")) InterController.myConf.keepAliveTime = conf.get("keepAliveTime");
 		if(conf.containsKey("FLOWMOD_DEFAULT_IDLE_TIMEOUT")) InterController.myConf.FLOWMOD_DEFAULT_IDLE_TIMEOUT = conf.get("FLOWMOD_DEFAULT_IDLE_TIMEOUT");
 		if(conf.containsKey("FLOWMOD_DEFAULT_HARD_TIMEOUT")) InterController.myConf.FLOWMOD_DEFAULT_HARD_TIMEOUT = conf.get("FLOWMOD_DEFAULT_HARD_TIMEOUT");
@@ -155,7 +152,7 @@ public class ReadConfig {
 		if(conf.containsKey("startClientInterval")) InterController.myConf.startClientInterval = conf.get("startClientInterval");
 		if(conf.containsKey("clientInterval")) InterController.myConf.clientInterval = conf.get("clientInterval");
 	//	if(conf.containsKey("defaultThreadSleepTime")) InterController.myConf.defaultThreadSleepTime = conf.get("defaultThreadSleepTime");
-	//	if(conf.containsKey("simrpMsgCheckPeriod")) InterController.myConf.simrpMsgCheckPeriod = conf.get("simrpMsgCheckPeriod");
+		if(conf.containsKey("seqUpdateTime")) InterController.myConf.seqUpdateTime = conf.get("seqUpdateTime")*60*60;
 		if(conf.containsKey("sendTotalNIBTimes")) InterController.myConf.sendTotalNIBTimes = conf.get("sendTotalNIBTimes");
 
 	//	if(conf.containsKey("PIBNo")) InterController.PIB.add(conf.get("PIBNo"));
@@ -179,7 +176,7 @@ public class ReadConfig {
 				tmpNeighbor.ASNodeDest.ASNum = Integer.parseInt(tempStrSplit[1]);
 				tmpNeighbor.linkID           = 1;
 				tmpNeighbor.bandWidth        = Integer.parseInt(tempStrSplit[2]);
-				tmpNeighbor.seq   		     = 1;		
+				tmpNeighbor.failed   		 = 0;		
 				tmpNeighbor.started          = true;
 				
 				if(NIB.containsKey(tmpNeighbor.ASNodeSrc.ASNum))

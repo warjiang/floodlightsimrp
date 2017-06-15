@@ -34,7 +34,7 @@ public class CloneUtils {
 		link.ASNodeSrc.ipPrefix = InterController.myConf.ipPrefix.clone();
 		link.ASNodeDest         = NeighborLNode.ASNodeDest.clone();
 		link.linkID             = NeighborLNode.linkID;
-		link.seq                = NeighborLNode.seq;
+		link.failed             = NeighborLNode.failed;
 		link.started            = NeighborLNode.started;
 		link.bandWidth          = NeighborLNode.bandWidth;
 		return link;
@@ -108,11 +108,62 @@ public class CloneUtils {
 		Map<Integer,Map<Integer,ASPath>> tmpRIBlocal = new HashMap<Integer,Map<Integer,ASPath>>();
 		for(Map.Entry<Integer, Map<Integer, ASPath>>entryA: RIBlocal.entrySet()){
 			Map<Integer,ASPath> tmpRIBpath = new HashMap<Integer,ASPath>();
-			for(Map.Entry<Integer, ASPath> entry: entryA.getValue().entrySet())
-				tmpRIBpath.put(entry.getKey(), entry.getValue().cloneBeginWithNextHop());	
+			for(Map.Entry<Integer, ASPath> entry: entryA.getValue().entrySet()){
+				tmpRIBpath.put(entry.getKey(), entry.getValue().clone());	
+				updateDefaultPath(entry.getValue());
+			}
 			tmpRIBlocal.put(entryA.getKey(), tmpRIBpath);
 		}
 		return tmpRIBlocal;
+	}
+	
+	
+	/**
+	 * update the dedault path which is used to set the default flow
+	 * In openflow 1.0, it can not transfer the data to both controller and the outPut port, 
+	 * so the default flow may introduce a lot of packet to the controller (not a good choice).
+	 * @param path
+	 * @return
+	 */
+	public static boolean updateDefaultPath(ASPath path){
+		boolean flag = false;
+		if(path.pathNodes.isEmpty()||!path.started)
+			return flag;
+		if(InterController.defaultRIB.containsKey(path.destASNum)){
+			if(path.weight < InterController.defaultRIB.get(path.destASNum).weight){
+				if(InterController.defaultRIB.get(path.destASNum).pathNode.ASNum != path.pathNodes.getFirst().ASNum
+						||InterController.defaultRIB.get(path.destASNum).pathNode.linkID != path.pathNodes.getFirst().linkID){
+					InterController.defaultRIB.get(path.destASNum).pathNode.ASNum  = path.pathNodes.getFirst().ASNum;
+					InterController.defaultRIB.get(path.destASNum).pathNode.linkID = path.pathNodes.getFirst().linkID;
+					InterController.defaultRIB.get(path.destASNum).weight   = path.weight;
+					flag = true;
+				}
+			}
+		
+			else if(path.weight == InterController.defaultRIB.get(path.destASNum).weight 
+					&&path.pathNodes.size()<InterController.defaultRIB.get(path.destASNum).len){
+				if(InterController.defaultRIB.get(path.destASNum).pathNode.ASNum != path.pathNodes.getFirst().ASNum
+						||InterController.defaultRIB.get(path.destASNum).pathNode.linkID != path.pathNodes.getFirst().linkID){
+					InterController.defaultRIB.get(path.destASNum).pathNode.ASNum  = path.pathNodes.getFirst().ASNum;
+					InterController.defaultRIB.get(path.destASNum).pathNode.linkID = path.pathNodes.getFirst().linkID;
+					InterController.defaultRIB.get(path.destASNum).len      = path.len;
+					flag = true;
+				}
+			}
+		}
+		else {
+			DefaultPath tmp = new DefaultPath();
+			tmp.pathNode.ASNum  = path.pathNodes.getFirst().ASNum;
+			tmp.pathNode.linkID = path.pathNodes.getFirst().linkID;
+			tmp.weight          = path.weight;
+			InterController.defaultRIB.put(path.destASNum, tmp);
+			flag = true;
+		}
+		
+		if(flag)
+			InterController.pushDefaultPath2Switch(path.destASNum, InterController.defaultRIB.get(path.destASNum));
+			
+		return flag;
 	}
 
 }

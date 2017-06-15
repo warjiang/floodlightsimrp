@@ -18,7 +18,7 @@ public class PathNode {
 	}
 	
 	public boolean equals(PathNode tmp){
-		if(this.ASNum!=0 && tmp.ASNum == this.ASNum && tmp.linkID == this.linkID)
+		if(tmp.ASNum == this.ASNum && tmp.linkID == this.linkID)
 			return true;
 		return false;
 	}

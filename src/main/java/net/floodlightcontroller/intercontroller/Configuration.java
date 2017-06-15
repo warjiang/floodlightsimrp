@@ -4,7 +4,7 @@ public class Configuration {
 	public int myASNum;
 	public IPPrefix ipPrefix;
 	public int SIMRPVersion;
-	public int holdingTime;
+	public int keepAliveTimeOffSet;
 	public int keepAliveTime;
 	public int RIBWaitingTime;
 	public int FLOWMOD_DEFAULT_IDLE_TIMEOUT;
@@ -31,7 +31,7 @@ public class Configuration {
 		this.myASNum         = 0;
 		this.ipPrefix        = new IPPrefix();
 		this.SIMRPVersion    = 1;
-		this.holdingTime     = 180;
+		this.keepAliveTimeOffSet  = 60;
 		this.keepAliveTime   = 60;
 		this.RIBWaitingTime  = 2;
 		this.FLOWMOD_DEFAULT_IDLE_TIMEOUT = 10;
@@ -44,8 +44,8 @@ public class Configuration {
 		
 		this.startClientInterval = 30;
 		this.clientInterval      = 5;
-		this.defaultThreadSleepTime = 0.5;
-		this.simrpMsgCheckPeriod    = 0.5;
+		this.defaultThreadSleepTime = 1;
+		this.simrpMsgCheckPeriod    = 2;
 		this.sendTotalNIBTimes      = 2;
 		
 		this.doReadRetryTimes       = 2;

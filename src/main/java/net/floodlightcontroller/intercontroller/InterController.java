@@ -110,6 +110,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	public static Map<Integer,ASNode> ASNodeList;     //<ASNum, ASNode>, all the ASNodes
 	
 	public static Map<Integer,Map<Integer,Map<Integer,ASPath>>> curRIB;  //<ASNumSrc,<ASNumDest,<pathID, ASPath>>>
+	public static Map<Integer,DefaultPath> defaultRIB;   // <ASNumDest,pathNode>
 	public static Map<Integer,LinkedList<ASPath>> RIB2BeUpdate;  //<NextHop,HashSet<ASPath>>
 	public static Map<Integer, LinkedList<ASPath>> RIB2BeReply;
 	public static boolean updateRIBWriteLock; 
@@ -122,7 +123,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	public static Map<Integer, Socket> mySockets;  //<ASNum, socket>
 	public static Map<Integer, Boolean> cllientSocketFlag;
 	
-	
+
 	protected IThreadPoolService threadPoolService;
 	protected IFloodlightProviderService floodlightProviderService;
 	protected static IOFSwitchService switchService;
@@ -162,6 +163,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
         InterController.allTheClientStarted= false;
 			
 		InterController.curRIB             = new HashMap<Integer,Map<Integer,Map<Integer,ASPath>>>();
+		InterController.defaultRIB         = new HashMap<Integer,DefaultPath>();
 		InterController.RIB2BeUpdate       = new HashMap<Integer,LinkedList<ASPath>>();
 		InterController.updateFlagRIB      = new HashMap<Integer, Boolean>();	
 		InterController.updateRIBFlagTotal = false;
@@ -180,19 +182,17 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		try {
 			floodlightProviderService.addOFMessageListener(OFType.PACKET_IN, this); //start to listen for packetIn				
 			myIPstr = getIpAddress().getHostAddress();
-			
-		//	String[] tmp ;
-		//	tmp = myIPstr.split(".");
-		//	InterController.myASNum = 60000 + Integer.parseInt(tmp[2]);
+
+			String SIMRPconfig     = "src/main/java/net/floodlightcontroller/" 
+					+"intercontroller/ASconfig/SIMRP.conf";
+			ReadConfig.readSIMRPconfigFile(SIMRPconfig);  //make
 			
 			InterController.myConf.ipPrefix.IP = InetAddress.getByName(myIPstr);
 			String configASAddress = "src/main/java/net/floodlightcontroller/" 
 					+"intercontroller/ASconfig/ASconfigFor" + myIPstr +".conf";
 			InterController.LNIB = ReadConfig.readNeighborFromFile(configASAddress);
 			
-			String SIMRPconfig     = "src/main/java/net/floodlightcontroller/" 
-					+"intercontroller/ASconfig/SIMRP.conf";
-			ReadConfig.readSIMRPconfigFile(SIMRPconfig);  //make
+			
 			
 			//you can write the static var inside the function
 			InterController.myASNum           = InterController.myConf.myASNum;
@@ -216,7 +216,8 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 			}		
 				
 			//need modify, add the path only if the socket is connected				
-			InterController.NIB = CloneUtils.cloneLNIB2NIB(InterController.LNIB);	
+			InterController.NIB = CloneUtils.cloneLNIB2NIB(InterController.LNIB);
+			CreateJson.createNIBJson();
 			PrintIB.printNIB(InterController.NIB);	
 			InterController.updateNIBFlagTotal = true; //it wont change anything at this time
 									
@@ -226,7 +227,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 				InterController.curRIB.put(myASNum, CloneUtils.RIBlocal2RIB(CurMultiPath.RIBFromlocal));
 		//		pushOF02Switch();
 			}  
-			
+			CreateJson.createRIBJson();
 			pushDefaultFlow2Switch();
 			
 			Thread t2 = new Thread(new startClientThread(), "startClientThread");
@@ -276,6 +277,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 					mySockets.put(ASDest, clientSocket);
 					Thread t1 = new clientSocketThread(clientSocket);
 					t1.start();
+					Time.sleep(InterController.myConf.clientReconnectInterval);
 				}
 				else {
 					ifAllClientStarted = false;
@@ -325,7 +327,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		public void run() {
 			// TODO Auto-generated method stub
 			int tmp = 0;
-			
+			int clientASNum = 0;
 			if(myServerSocket!=null){
 				while(true){
 					try {
@@ -333,6 +335,9 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 						Socket mySocket = myServerSocket.accept();
 						System.out.printf("**************************Get new socket:%s  ********************************\n", mySocket);
 						tmp = getASNumFromSocket(mySocket);
+						clientASNum = InterController.getASNumFromSocket(mySocket);
+						if(InterController.myPIB.rejectAS.contains(clientASNum))
+							continue;
 						if(!mySockets.containsKey(tmp))
 							mySockets.put(tmp, mySocket);
 						else{
@@ -440,39 +445,13 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 			return false;	
 		}		
 		InterController.NIB.get(InterController.myASNum).get(ASNumDest).started = true;
+		if(InterController.NIB.get(InterController.myASNum).get(ASNumDest).failed != 0)
+			InterController.NIB.get(InterController.myASNum).get(ASNumDest).seq = InterController.NIB.get(InterController.myASNum).get(ASNumDest).failed*2;
 		InterController.NIBWriteLock = false;
 		return true;		
 	}
 	
-	
-	/**
-	 * puah the OF0, the default flow, to the Switch
-	 * @throws IOException
-	 */
-	public static void pushOF02Switch() throws IOException{
-		//need to improve
-		//dpid should be the same in the NIB, but I do not want to configure them one by one.== so send to all the sw
-		//if you configure it in the configASAddress, the Link.outSwitch is the fit dpid here.
-		Set<DatapathId> swDpIds = null;
-		DatapathId dpid = null; 
-		swDpIds = InterController.switchService.getAllSwitchDpids();
-		while(swDpIds.isEmpty()){
-			Time.sleep(2);
-			swDpIds = switchService.getAllSwitchDpids();
-			System.out.printf("!!no switch is connected, need to wait for another 2s!\n");
-		}	
-		Iterator<DatapathId> it = swDpIds.iterator();
-		while(it.hasNext()){
-			dpid = it.next();
-			IOFSwitch sw = switchService.getSwitch(dpid);
-			Routing.pushRoute(sw, null, null, (byte)0x10); 
-			if(InterController.curRIB.containsKey(myASNum))
-				Routing.pushBestPath2Switch(InterController.curRIB.get(myASNum), sw);
-		}
-	}
-	
-	
-	
+		
 	public static void updateMySwitchDPID(DatapathId dpid){
 		if(!InterController.NIB.containsKey(myASNum))
 			return ;
@@ -483,7 +462,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 	
 	
 
-	public static void pushSinglePath2Switch(ASPath path){
+	public static void pushDefaultPath2Switch(int destASNum, DefaultPath path){
 		Set<DatapathId> swDpIds = null;
 		DatapathId dpid = null; 
 		swDpIds = InterController.switchService.getAllSwitchDpids();
@@ -496,7 +475,7 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		while(it.hasNext()){
 			dpid = it.next();
 			IOFSwitch sw = InterController.switchService.getSwitch(dpid);
-			Routing.pushPath2Switch(path, sw);
+			Routing.pushSinglePath2Switch(destASNum, path, sw);
 		}
 	}
 	
@@ -563,7 +542,9 @@ public class InterController implements IOFMessageListener, IFloodlightModule,
 		HashSet<Integer> tmp = new HashSet<Integer>();
 		tmp.add(InterController.myASNum);
 		for(Map.Entry<Integer, NeighborL> entry: nodes.entrySet()){
-			tmp.add(entry.getValue().getASNumDest());
+			int ASNum = entry.getValue().getASNumDest();
+			if(!InterController.myPIB.sendReject.contains(ASNum) && !InterController.ASNumList.contains(ASNum))
+				tmp.add(ASNum);
 		}
 		return tmp;
 	}

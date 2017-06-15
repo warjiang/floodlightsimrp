@@ -21,6 +21,7 @@ public class UpdateRIB {
 		boolean getNewRIBFlag = false;
 		//calculate the new Multipath	
 		while(InterController.NIBWriteLock ){
+			System.out.printf("--updateRIB 23--\n");
 			;
 		}
 		InterController.NIBWriteLock = true; //lock NIB
@@ -31,6 +32,7 @@ public class UpdateRIB {
 			
 		//update RIB Path here 
 		while(InterController.RIBWriteLock ){
+			System.out.printf("--updateRIB 34--");
 			;
 		}
 		InterController.RIBWriteLock = true;
@@ -41,25 +43,83 @@ public class UpdateRIB {
 			return true;
 		}
 		
+		PrintIB.printlocalRIB(tmpCurMultiPath.RIBFromlocal);
+		InterController.RIBWriteLock = false;
 		//ASDestSet , pathID, seq
 		Map<Integer,Map<Integer,Integer>> pathIDList = new HashMap<Integer,Map<Integer,Integer>>();
-		for(Map.Entry<Integer, Map<Integer, ASPath>>entryA: tmpCurMultiPath.RIBFromlocal.entrySet()){
+		for(int ASNum : InterController.ASNumList){
+			if(tmpCurMultiPath.RIBFromlocal.containsKey(ASNum)){
+				Map<Integer, ASPath>entryA = tmpCurMultiPath.RIBFromlocal.get(ASNum);
+				if(InterController.curRIB.get(myASNum).containsKey(ASNum)) {
+					tmpSizeOld = InterController.curRIB.get(myASNum).get(ASNum).size();
+					tmpSizeNew = entryA.size();
+					Map<Integer,Integer> pathID = new HashMap<Integer,Integer>();
+					for(int i=0; i< maxPathNum; i++){
+						pathID.put(i, 0);	
+					}
+					pathIDList.put(ASNum, pathID);
+					
+					for(int i=0; i< tmpSizeOld; i++){
+						if(!InterController.curRIB.get(myASNum).get(ASNum).containsKey(i))
+							continue;
+						flag = false;
+						for(int j=0; j< tmpSizeNew; j++){
+							if(!entryA.containsKey(j))
+								continue;
+							if(InterController.curRIB.get(myASNum).get(ASNum).get(i).equalsPath(entryA.get(j))){
+								InterController.curRIB.get(myASNum).get(ASNum).get(i).pathID = i; 
+								InterController.curRIB.get(myASNum).get(ASNum).get(i).weight = entryA.get(j).weight;
+								InterController.curRIB.get(myASNum).get(ASNum).get(i).pathKey = entryA.get(j).pathKey;
+								pathIDList.get(ASNum).remove(i);
+							//	if(tmpCurMultiPath.RIBFromlocal.get(entryA.getKey()).get(j).destASNum==65432)
+							//		PrintIB.printPath(tmpCurMultiPath.RIBFromlocal.get(entryA.getKey()).get(j));
+								tmpCurMultiPath.RIBFromlocal.get(ASNum).remove(j);
+								flag = true;
+								break;
+							}
+						}
+						if(!flag){
+							newPath = InterController.curRIB.get(myASNum).get(ASNum).get(i);
+							InterController.curRIB.get(myASNum).get(ASNum).remove(i);
+							if(newPath.pathNodes.size()>1)
+								updateSinglePathInRIB2BeUpdate(newPath, false);
+						}
+					}
+				}
+			}
+			else if(InterController.curRIB.get(myASNum).containsKey(ASNum)){
+				for(int k=0; k<InterController.myPIB.maxPathNum; k++){
+					if(InterController.curRIB.get(myASNum).get(ASNum).containsKey(k) && InterController.curRIB.get(myASNum).get(ASNum).get(k).pathNodes.size()>1)
+						updateSinglePathInRIB2BeUpdate(InterController.curRIB.get(myASNum).get(ASNum).get(k), false);
+					InterController.curRIB.get(myASNum).get(ASNum).remove(k);
+				}
+			}
+				
+		}
+	/*	for(Map.Entry<Integer, Map<Integer, ASPath>>entryA: tmpCurMultiPath.RIBFromlocal.entrySet()){
 			if(InterController.curRIB.get(myASNum).containsKey(entryA.getKey())) {
 				tmpSizeOld = InterController.curRIB.get(myASNum).get(entryA.getKey()).size();
 				tmpSizeNew = entryA.getValue().size();
-				
+				Map<Integer,Integer> pathID = new HashMap<Integer,Integer>();
 				for(int i=0; i< maxPathNum; i++){
-					Map<Integer,Integer> pathID = new HashMap<Integer,Integer>();
-					pathID.put(i, 0);
-					pathIDList.put(entryA.getKey(), pathID);
+					pathID.put(i, 0);	
 				}
+				pathIDList.put(entryA.getKey(), pathID);
 				
 				for(int i=0; i< tmpSizeOld; i++){
+					if(!InterController.curRIB.get(myASNum).get(entryA.getKey()).containsKey(i))
+						continue;
 					flag = false;
 					for(int j=0; j< tmpSizeNew; j++){
+						if(!entryA.getValue().containsKey(j))
+							continue;
 						if(InterController.curRIB.get(myASNum).get(entryA.getKey()).get(i).equalsPath(entryA.getValue().get(j))){
-							InterController.curRIB.get(myASNum).get(entryA.getKey()).get(i).weight = tmpCurMultiPath.RIBFromlocal.get(entryA.getKey()).get(j).weight;
-							pathIDList.get(entryA.getKey()).remove(InterController.curRIB.get(myASNum).get(entryA.getKey()).get(i).pathID);
+							InterController.curRIB.get(myASNum).get(entryA.getKey()).get(i).pathID = i; 
+							InterController.curRIB.get(myASNum).get(entryA.getKey()).get(i).weight = entryA.getValue().get(j).weight;
+							InterController.curRIB.get(myASNum).get(entryA.getKey()).get(i).pathKey = entryA.getValue().get(j).pathKey;
+							pathIDList.get(entryA.getKey()).remove(i);
+						//	if(tmpCurMultiPath.RIBFromlocal.get(entryA.getKey()).get(j).destASNum==65432)
+						//		PrintIB.printPath(tmpCurMultiPath.RIBFromlocal.get(entryA.getKey()).get(j));
 							tmpCurMultiPath.RIBFromlocal.get(entryA.getKey()).remove(j);
 							flag = true;
 							break;
@@ -67,42 +127,54 @@ public class UpdateRIB {
 					}
 					if(!flag){
 						newPath = InterController.curRIB.get(myASNum).get(entryA.getKey()).get(i);
-						newPath.seq++;
-						pathIDList.get(entryA.getKey()).put(i, newPath.seq);
-					//	if((tmpSizeOld - i ) > tmpCurMultiPath.RIBFromlocal.get(entryA.getKey()).size()) //the pathID will be replace 
-						updateRIBDeleteASpath(newPath);
+						if(newPath.pathNodes.size()>1)
+							updateSinglePathInRIB2BeUpdate(newPath, false);
+						InterController.curRIB.get(myASNum).get(entryA.getKey()).remove(i);
 					}
 				}
 			}
 		}
+		*/
 		
 		//get the RIB2BeUpdate
 		//RIBFromlocal: <ASnumDest,<pathID, ASPath>>
-		if(!tmpCurMultiPath.RIBFromlocal.isEmpty())
+		if(!tmpCurMultiPath.RIBFromlocal.isEmpty()){
 			getNewRIBFlag = true;
 			for(Map.Entry<Integer, Map<Integer, ASPath>>entryA: tmpCurMultiPath.RIBFromlocal.entrySet()){	
-				tmpSizeNew = entryA.getValue().size();
-				for(int i=0; i<tmpSizeNew; i++){
+				for(int i=0; i<maxPathNum; i++){
 					if(!entryA.getValue().containsKey(i))
-						break;
+						continue;
 					newPath = entryA.getValue().get(i);
+					CloneUtils.updateDefaultPath(newPath);
+					if(!pathIDList.containsKey(entryA.getKey())){
+						Map<Integer,Integer> pathID = new HashMap<Integer,Integer>();
+						for(int j=0; j< maxPathNum; j++){
+							pathID.put(j, 0);	
+						}
+						pathIDList.put(entryA.getKey(), pathID);
+					}
 					for(int j = 0; j<maxPathNum; j++){
 						if(!pathIDList.get(entryA.getKey()).containsKey(j))
-							break;
+							continue;
 						newPath.pathID = j;
-						newPath.seq = pathIDList.get(entryA.getKey()).get(j);
-						if(newPath.pathNodes.size()>2)  // size>2 means nextHop!=ASnumDest;
-							updateSinglePathInRIB2BeUpdateBeginWithMyASnum(newPath, true);	
-						else {
-							newPath.started = true;
+						pathIDList.get(entryA.getKey()).remove(j);
+						newPath.started = true;
+						if(newPath.pathNodes.size()>1)  // size>2 means nextHop!=ASnumDest;
+							updateSinglePathInRIB2BeUpdate(newPath, true);	
+						
+						if(InterController.curRIB.get(myASNum).containsKey(entryA.getKey())){
+							InterController.curRIB.get(myASNum).get(entryA.getKey()).put(j, newPath);
 						}
-						if(InterController.curRIB.get(myASNum).get(entryA.getKey()).containsKey(j))
-							InterController.curRIB.get(myASNum).get(entryA.getKey()).remove(j);
-						InterController.curRIB.get(myASNum).get(entryA.getKey()).put(j, newPath);
+						else {
+							Map<Integer, ASPath> tmp1 = new HashMap<Integer, ASPath>();
+							tmp1.put(j, newPath);
+							InterController.curRIB.get(myASNum).put(entryA.getKey(), tmp1);	
+						}
+						break;
 					}
 				}	
 			}			
-		
+		}
 		InterController.RIBWriteLock = false;
 		return getNewRIBFlag;
 	}
@@ -116,13 +188,13 @@ public class UpdateRIB {
 	 */
 	public static boolean updateRIBFormRIBMsg(byte[] msg, int  ASNum){
 		boolean getNewRIBFlag = false;
-	//	Map<Boolean, ASPath> pathReply = new HashMap<Boolean, ASPath>();
-		int listLen = DecodeData.byte2Integer(msg, 6);
-
-		//add the path to UpdateRIB
-		for(int i=0; i<listLen; i++){
-			ASPath tmpPath = DecodeData.byte2ASPath(msg, 8);
-			PrintIB.printPath(tmpPath);
+		String str = "Get ASPath from "+ ASNum;
+		//add the path to UpdateRIB		
+		for(int i=6; i<msg.length; ){
+			ASPath tmpPath = DecodeData.byte2ASPath(msg, i);
+			i += 7+tmpPath.pathNodes.size()*3;
+			
+			PrintIB.printPath(tmpPath, str);
 			//if the first node is not myASnum, Error
 			if(tmpPath.pathNodes.size()<2){
 				System.out.printf("RIBMsg Error: pathNodes.size<2");
@@ -133,7 +205,7 @@ public class UpdateRIB {
 				continue;
 			}
 			//add RIB Msg or delete RIB Msg
-			if(tmpPath.exist)
+			if(tmpPath.started)
 				getNewRIBFlag = updateRIBAddASpath(tmpPath, ASNum)|| getNewRIBFlag;
 			else
 				getNewRIBFlag = updateRIBDeleteASpath(tmpPath) || getNewRIBFlag;
@@ -149,16 +221,23 @@ public class UpdateRIB {
 	 */
 	public static boolean updateRIBDeleteASpath(ASPath path){
 		boolean getNewRIBFlag = false;
+		if(path.pathNodes.size()<=1)
+			return false;
 		ASPath tmpPath = path.cloneBeginWithNextHop();
-		if(InterController.curRIB.containsKey(path.srcASNum)&&InterController.curRIB.get(path.srcASNum).containsKey(path.destASNum)&&
-				InterController.curRIB.get(path.srcASNum).get(path.destASNum).containsKey(path.pathID)){
+	//	if(tmpPath.srcASNum==65430 && tmpPath.destASNum==65434)
+	//		tmpPath.srcASNum = 65430;
+		if(InterController.curRIB.containsKey(tmpPath.srcASNum)&&InterController.curRIB.get(tmpPath.srcASNum).containsKey(tmpPath.destASNum)
+				&&InterController.curRIB.get(tmpPath.srcASNum).get(tmpPath.destASNum).containsKey(tmpPath.pathID)){
 			while(InterController.RIBWriteLock ){
+				System.out.printf("--updateRIB 169--");
 				;
 			}
 			InterController.RIBWriteLock = true; //lock RIB
-			if(InterController.curRIB.get(path.srcASNum).get(path.destASNum).get(path.pathID).seq > path.seq)
-				return getNewRIBFlag;
-			InterController.curRIB.get(path.srcASNum).get(path.destASNum).get(path.pathID).exist = false;
+			if(tmpPath.equalsPath(InterController.curRIB.get(tmpPath.srcASNum).get(tmpPath.destASNum).get(tmpPath.pathID))){
+				String str = "!!!!!!!!!!!!!!!!!Remove ASPath";
+				PrintIB.printPath(tmpPath, str);
+				InterController.curRIB.get(tmpPath.srcASNum).get(tmpPath.destASNum).remove(tmpPath.pathID);
+			}
 			InterController.RIBWriteLock = false; //unlock RIB		
 			updateSinglePathInRIB2BeUpdate(tmpPath, false);
 			getNewRIBFlag = true;
@@ -174,34 +253,23 @@ public class UpdateRIB {
 	public static boolean updateRIBAddASpath(ASPath path, int ASNum){
 		boolean getNewRIBFlag = false;
 		ASPath tmpPath = path.cloneBeginWithNextHop();
+		CloneUtils.updateDefaultPath(tmpPath);
 		while(InterController.RIBWriteLock ){
+			System.out.printf("--updateRIB 192--");
 			;
 		}
 		InterController.RIBWriteLock = true; //lock RIB	
-		if(InterController.curRIB.containsKey(path.srcASNum)){
-			if(InterController.curRIB.get(path.srcASNum).containsKey(path.destASNum)){
-				if(InterController.curRIB.get(path.srcASNum).get(path.destASNum).containsKey(path.pathID)){
-					if(!InterController.curRIB.get(path.srcASNum).get(path.destASNum).get(path.pathID).equals(path)){
-						if(InterController.curRIB.get(path.srcASNum).get(path.destASNum).get(path.pathID).seq < path.seq){
-							InterController.curRIB.get(path.srcASNum).get(path.destASNum).remove(path.pathID);
-							InterController.curRIB.get(path.srcASNum).get(path.destASNum).put(path.pathID, tmpPath);			
-							getNewRIBFlag = true;
-						}
-						else
-							return getNewRIBFlag;
-					}
-					else 
-						return getNewRIBFlag;
-				}
-				else{
-					InterController.curRIB.get(path.srcASNum).get(path.destASNum).put(path.pathID, tmpPath);			
-					getNewRIBFlag = true;
-				}
+		if(InterController.curRIB.containsKey(tmpPath.srcASNum)){
+			if(InterController.curRIB.get(tmpPath.srcASNum).containsKey(tmpPath.destASNum)){
+				if(InterController.curRIB.get(tmpPath.srcASNum).get(tmpPath.destASNum).containsKey(tmpPath.pathID))
+					InterController.curRIB.get(tmpPath.srcASNum).get(tmpPath.destASNum).remove(tmpPath.pathID);
+				InterController.curRIB.get(tmpPath.srcASNum).get(tmpPath.destASNum).put(tmpPath.pathID, tmpPath);			
+				getNewRIBFlag = true;
 			}
 			else{
 				Map<Integer,ASPath> tmp1 = new HashMap<Integer,ASPath>();
 				tmp1.put(tmpPath.pathID, tmpPath.clone());
-				InterController.curRIB.get(path.srcASNum).put(path.destASNum, tmp1);			
+				InterController.curRIB.get(tmpPath.srcASNum).put(tmpPath.destASNum, tmp1);			
 				getNewRIBFlag = true;
 			}
 		}
@@ -209,20 +277,22 @@ public class UpdateRIB {
 			Map<Integer,ASPath> tmp1 = new HashMap<Integer,ASPath>();
 			tmp1.put(tmpPath.pathID, tmpPath.clone());
 			Map<Integer,Map<Integer,ASPath>> tmp2 = new HashMap<Integer,Map<Integer,ASPath>>();
-			tmp2.put(path.destASNum, tmp1);					
-			InterController.curRIB.put(path.srcASNum, tmp2);					
+			tmp2.put(tmpPath.destASNum, tmp1);					
+			InterController.curRIB.put(tmpPath.srcASNum, tmp2);					
 			getNewRIBFlag = true;
 		}
 		InterController.RIBWriteLock = false; //unlock RIB	
 		
 		if(getNewRIBFlag){
-			if(path.pathNodes.size()>2) // min size is 3			
+			//String str = "!!!!!!!!!!!!!!!!!ADD ASPath";
+		//	PrintIB.printPath(tmpPath, str);
+			if(tmpPath.pathNodes.size()>1) // min size is 3			
 				updateSinglePathInRIB2BeUpdate(tmpPath, true);		
 			
-			else if(!InterController.LNIB.get(path.destASNum).started ){
-				InterController.curRIB.get(path.srcASNum).get(path.destASNum).get(path.pathID).started = false;
+			else if(!InterController.NIB.get(InterController.myASNum).get(tmpPath.pathNodes.getFirst().ASNum).started ){
+				InterController.curRIB.get(tmpPath.srcASNum).get(tmpPath.destASNum).get(tmpPath.pathID).started = false;
 				tmpPath.started = false;
-				addPathReply(tmpPath.srcASNum, tmpPath);	
+		//		addPathReply(tmpPath.srcASNum, tmpPath);	
 			}
 		}
 		return getNewRIBFlag;
@@ -259,15 +329,16 @@ public class UpdateRIB {
 		if(path.pathNodes.size()<2)
 			return ;
 		while(InterController.updateRIBWriteLock){
+			System.out.printf("--updateRIB 271--");
 			;
 		}
 		InterController.updateRIBWriteLock = true;
 		
 		int nextHop = path.pathNodes.get(0).ASNum;
 		if(ifadd)
-			path.exist = true;
+			path.started = true;
 		else
-			path.exist = false;
+			path.started = false;
 		if(InterController.RIB2BeUpdate.containsKey(nextHop)){
 			if(!InterController.RIB2BeUpdate.get(nextHop).contains(path))
 				InterController.RIB2BeUpdate.get(nextHop).add(path.clone());
@@ -296,6 +367,7 @@ public class UpdateRIB {
 		ASPath tmpPath;
 		int nextHop=0;
 		while(InterController.updateRIBWriteLock){
+			System.out.printf("--updateRIB 308--");
 			;
 		}
 		InterController.updateRIBWriteLock = true;
@@ -304,7 +376,9 @@ public class UpdateRIB {
 			for(Map.Entry<Integer, ASPath> entryB : entryA.getValue().entrySet()){		
 				tmpPath = entryB.getValue();
 				nextHop = tmpPath.pathNodes.get(0).ASNum;
-				tmpPath.exist = true;
+				if(nextHop==tmpPath.destASNum)
+					break;
+				tmpPath.started = true;
 				if(InterController.RIB2BeUpdate.containsKey(nextHop)){
 					if(!InterController.RIB2BeUpdate.get(nextHop).contains(tmpPath))
 						InterController.RIB2BeUpdate.get(nextHop).add(tmpPath.clone());
@@ -328,9 +402,11 @@ public class UpdateRIB {
 		InterController.updateRIBWriteLock = false;		
 	}
 	
+	//not used
 	public static boolean addPathReply(int ASNum, ASPath path){
 		if(InterController.LNIB.containsKey(path.srcASNum)){
 			while(InterController.RIBReplyWriteLock){
+				System.out.printf("--updateRIB 347--");
 				;
 			}
 			InterController.RIBReplyWriteLock = true;

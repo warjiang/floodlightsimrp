@@ -72,7 +72,7 @@ public class MultiPath {
 			if(NIB.containsKey(ASNumSrc) && NIB.get(ASNumSrc).containsKey(ASNodeNum) 
 					&& NIB.get(ASNumSrc).get(ASNodeNum).started){
 				tmpAttri.bandwidth   = NIB.get(ASNumSrc).get(ASNodeNum).bandWidth;
-				tmpAttri.brokenTimes = NIB.get(ASNumSrc).get(ASNodeNum).seq - NIB.get(ASNumSrc).get(ASNodeNum).seqOld;
+				tmpAttri.brokenTimes = NIB.get(ASNumSrc).get(ASNodeNum).failed - NIB.get(ASNumSrc).get(ASNodeNum).failedOld;
 				tmpAttri.latency     = 1;
 				tmpAttri.weight      = 1;
 				WeightMap.put(ASNodeNum, tmpAttri);
@@ -121,7 +121,7 @@ public class MultiPath {
 							WeightMap.get(nodeClose).bandwidth : NIB.get(nodeClose).get(nodeOpen).getBandwidth();
 					if(tmpBandwidth < minBandWidth)
 						continue;
-					tmpWeight = pathValue(WeightMap.get(nodeClose).weight, NIB.get(nodeClose).get(nodeOpen).seq - NIB.get(nodeClose).get(nodeOpen).seqOld ); //src to dest
+					tmpWeight = pathValue(WeightMap.get(nodeClose).weight, NIB.get(nodeClose).get(nodeOpen).failed - NIB.get(nodeClose).get(nodeOpen).failedOld ); //src to dest
 					tmpLatency   = this.WeightMap.get(nodeClose).latency + 1;
 					if(minValue > tmpWeight){
 						minValue = tmpWeight;
@@ -189,13 +189,12 @@ public class MultiPath {
 		path.len       =  0;
 		path.bandwidth =  WeightMap.get(tmpASNumDest).bandwidth;
 		path.weight    =  WeightMap.get(tmpASNumDest).weight;
-		path.pathKey   = pathKey;
+		path.pathKey   =  pathKey;
+		path.pathID    =  pathKey;
 //		path.pathNodes.addFirst(tmpASNumDest);
 		//get the Path through the perviousNode.
 		while(tmpASNum != ASNumSrc && tmpASNum >=0){
 			tmpASNum = perviousNode.get(tmpASNumDest).intValue();
-			if(tmpASNum==601)
-				tmpASNum = 601;
 			//make sure that the path start with the nextHop
 			if(ASNodeNumList.contains(tmpASNum) ){//&& tmpASnum!=ASNumSrc
 				PathNode pathNode = new PathNode();

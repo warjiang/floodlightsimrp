@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import org.python.modules.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,49 +15,49 @@ public class HandleSIMRP {
 	 * handle the hello msg, if 0x00 during hello; 0x11 the other side is ready; 0x12 our side is ready 
 	 * @param msg
 	 * @param out
+	 * @param socketAddress the clientASNum
 	 * @param openFlag
 	 * @return
 	 */
 	public static byte handleOpen(byte[] msg,OutputStream out, boolean openFlag, int socketAddress){
-		System.out.printf("%s:%s:Get Hello Msg\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:Get Open Msg from %s\n", System.currentTimeMillis()/1000, socketAddress);	
+			
+		int keepAliveTime = DecodeData.byte2Integer(msg,7);
+		int ASDest = DecodeData.byte2Integer(msg,5);
 		
-		byte[] tmp = new byte[2];
-		tmp[0] = (byte) (msg[7]>>>4); 
-		tmp[1] = (byte) ((msg[7]&0x0f)<<4 |(msg[8]>>>4));		
-		int holdingTime = DecodeData.byte2Integer(tmp,0);
-		if(holdingTime > InterController.myConf.holdingTime){
-				tmp = EncodeData.Integer2ByteArray(InterController.myConf.holdingTime);
-				msg[7] = (byte) (tmp[0]<<4 | tmp[1]>>>4);
-				msg[8] = (byte) (msg[8] | tmp[1]<<4);
+		if(ASDest!=socketAddress){
+			;//todo
 		}
-		else 
-			InterController.myConf.holdingTime = holdingTime;
+
+		if(InterController.LNIB.containsKey(socketAddress)){
+			InterController.LNIB.get(socketAddress).keepAliveTime = keepAliveTime;
+		//	System.out.printf("%s's keepTime is %s\n",ASDest,keepAliveTime );
+		}
 		
-		tmp[0] = (byte) (msg[8]&0x0f); 
-		tmp[1] = msg[9];		
-		int keepAliveTime = DecodeData.byte2Integer(tmp,0);
-		if(holdingTime > InterController.myConf.keepAliveTime){
-			tmp = EncodeData.Integer2ByteArray(InterController.myConf.keepAliveTime);
-			msg[8] = (byte) (msg[8]&0xf0 | tmp[0]);
-			msg[9] = tmp[1];
-		}
-		else 
-			InterController.myConf.keepAliveTime = keepAliveTime;
+		//change the ASNum and keepAlive part
+		byte[] tmp = EncodeData.Integer2ByteArray(InterController.myASNum);
+		for(int i =0; i<2; i++)
+			msg[5+i] = tmp[i];
+		tmp = EncodeData.Integer2ByteArray(InterController.myConf.keepAliveTime); // keepAliveTime
+		for(int i =0; i<2; i++)
+			msg[7+i] = tmp[i];
+		
 		
 		// get open+1 
 		if((msg[4]&0x01)==(byte)0x01 && !openFlag){	
 			if(!HandleSIMRP.doWirteNtimes(out, msg, InterController.myConf.doWriteRetryTimes, "get open+1", socketAddress))
 				return 0x01;	
-			Time.sleep(1);
 			return 0x12;  //other side is OK
 		}
 		
 		//in this demo, no false open, all use SIMRP1.0
-		msg[4] = (byte) (msg[4]|(byte)0x01);
-		if(!HandleSIMRP.doWirteNtimes(out, msg, InterController.myConf.doWriteRetryTimes, "get open+0", socketAddress))
-			return 0x01;	
-		Time.sleep(1);
-		return 0x11; //my side is ok
+		if((msg[4]&0x01)==(byte)0x00 && !openFlag){
+			msg[4] = (byte) (msg[4]|(byte)0x01);
+			if(!HandleSIMRP.doWirteNtimes(out, msg, InterController.myConf.doWriteRetryTimes, "get open+0", socketAddress))
+				return 0x01;	
+			return 0x11; //my side is ok
+		}
+		return 0x10;
 	}
 	
 	public static byte handleKeepalive(byte[] msg, OutputStream out, boolean openFlag, int socketAddress){
@@ -66,19 +65,19 @@ public class HandleSIMRP {
 			System.out.printf("%s:%s:openFlag=False(Keepalive)", socketAddress, System.currentTimeMillis()/1000);
 			return 0x02;
 		}
-		//you can add latency
-		if((msg[4]&0x10)==0x01){//
-			handleRIBReply(msg);
-			return 0x22;	
-		}	
-		else{
-			System.out.printf("%s:%s:Get Keepalive regular Msg: 101myConf.keepAliveTime:%s, myConf.holdingTime:%s\n", 
-					socketAddress, System.currentTimeMillis()/1000, InterController.myConf.keepAliveTime,InterController.myConf.holdingTime);
-			return 0x21;
-		}
+		int ASDest = DecodeData.byte2Integer(msg,6);
+		if(InterController.LNIB.containsKey(ASDest))
+			System.out.printf("%s:Get Keepalive regular Msg from %s. keepAliveTime:%s\n", 
+				 System.currentTimeMillis()/1000, socketAddress, InterController.LNIB.get(ASDest).keepAliveTime );
+		else
+			System.out.printf("%s:Get Keepalive regular Msg from %s", System.currentTimeMillis()/1000, socketAddress);
+			
+		return 0x21;
 	}
 		
 	public static byte handleUpdataNIB(byte[] msg, OutputStream out, boolean openFlag, int socketAddress) {
+		if(InterController.myPIB.rejectAS.contains(socketAddress))
+			return 0x30;
 		if(!openFlag){
 			System.out.printf("%s:%s:openFlag=False(UpdateNIB)", socketAddress, System.currentTimeMillis()/1000);
 			return 0x03;
@@ -87,7 +86,7 @@ public class HandleSIMRP {
 		if(len<5)
 			return 0x00;
 		
-		System.out.printf("%s:%s:*******Get UpdataNIB Msg*******\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:Get UpdataNIB Msg from %s\n", System.currentTimeMillis()/1000, socketAddress);
 		boolean getNewNeighborFlag = false;
 		boolean getNewRIBFlag = false;
 		getNewNeighborFlag = UpdateNIB.updateNIBFromNIBMsg(msg, socketAddress);
@@ -112,7 +111,10 @@ public class HandleSIMRP {
 		return 0x30;
 	}
 	
+	
 	public static byte handleUpdateRIB(byte[] msg, OutputStream out, boolean openFlag, int socketAddress) {
+		if(InterController.myPIB.rejectAS.contains(socketAddress))
+			return 0x40;
 		if(!openFlag){
 			System.out.printf("%s:%s:openFlag=False(UpdateRIB)\n", socketAddress, System.currentTimeMillis()/1000);
 			return 0x04;
@@ -120,7 +122,7 @@ public class HandleSIMRP {
 		if(msg.length<12)
 			return 0x00; //it should not happen
 		boolean getNewRIBFlag = false;
-		System.out.printf("%s:%s:*******Get UpdataRIB Msg*******\n", socketAddress, System.currentTimeMillis()/1000);
+		System.out.printf("%s:Get UpdataRIB Msg from %s\n", System.currentTimeMillis()/1000, socketAddress);
 		getNewRIBFlag = UpdateRIB.updateRIBFormRIBMsg(msg, socketAddress);	
 		if(getNewRIBFlag){
 			System.out.printf("%sRIB.JON update\n", InterController.myIPstr);
@@ -142,6 +144,7 @@ public class HandleSIMRP {
 			System.out.printf("Error! the msg.length is %s less than 4, should not happen\n msg is: %s\n",msg.length, msg);
 			return 0x00;
 		}
+			
 		byte tmp = (byte) ((msg[4]&0xe0) >>>5); 
 		switch (tmp){
 		case 0x01: return handleOpen(msg, out, openFlag, socketAddress);
@@ -194,12 +197,13 @@ public class HandleSIMRP {
 			return false;
 		}
 		if(msgType!=null)
-			System.out.printf("%s:%s:send %s msg\n", socketAddress, System.currentTimeMillis()/1000, msgType);
+			System.out.printf("%s:send %s msg to %s\n", System.currentTimeMillis()/1000, msgType, socketAddress);
 		else 
-			System.out.printf("%s:send unknow type msg\n", socketAddress, msgType);
+			System.out.printf("%s:send unknow type msg to %s\n", System.currentTimeMillis()/1000, socketAddress);
 		return true;
 	}
 		
+	//unused
 	public static void handleRIBReply(byte[] msg){
 		int len = (msg.length-9)/5;
 		ASPath path = new ASPath();

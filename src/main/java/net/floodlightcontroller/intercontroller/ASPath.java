@@ -7,13 +7,13 @@ public class ASPath {
 	public int destASNum;
 	public int pathID;
 	public int pathKey;
-	public int seq;
 	public LinkedList<PathNode> pathNodes;	
 	public int len;
 	public int weight; // weight = sum( 1+ 2^(seqFromNIB)  )
-	public boolean started;
+	public boolean started; //  true add or modify; false delete;
 	public boolean inUse; //if inuse or not;
-	public boolean exist; //  true add or modify; false delete; 
+	public int inUseTime;
+//	public boolean exist; //  true add or modify; false delete; 
 	
 	public int bandwidth;
 
@@ -28,8 +28,9 @@ public class ASPath {
 		this.weight    = Integer.MAX_VALUE;	
 		this.started   = true;
 		this.inUse     = false; //default available
-		this.exist     = true;  //default add
+//		this.exist     = true;  //default add
 		this.bandwidth = 0;
+		this.inUseTime = 0;
 	}
 	
 	public ASPath clone(){
@@ -38,7 +39,6 @@ public class ASPath {
 		res.destASNum     = this.destASNum;
 		res.pathID   = this.pathID;
 		res.pathKey  = this.pathKey;
-		res.seq      = this.seq;
 		
 		
 		for(int i =0; i<this.pathNodes.size(); i++)
@@ -48,7 +48,8 @@ public class ASPath {
 		res.weight   = this.weight;
 		res.started  = this.started;
 		res.inUse    = this.inUse; 
-		res.exist    = this.exist;	
+		res.inUseTime= this.inUseTime; 
+//		res.exist    = this.exist;	
 		res.bandwidth= this.bandwidth;
 		return res;
 	}
@@ -72,7 +73,6 @@ public class ASPath {
 		res.destASNum     = this.destASNum;
 		res.pathID   = this.pathID;
 		res.pathKey  = this.pathKey;
-		res.seq      = this.seq;
 		
 		for(int i =1; i<this.pathNodes.size(); i++)
 			res.pathNodes.add(this.pathNodes.get(i).clone());	
@@ -81,7 +81,8 @@ public class ASPath {
 		res.weight   = this.weight;
 		res.started  = this.started;
 		res.inUse    = this.inUse; 
-		res.exist    = this.exist;	
+		res.inUseTime= this.inUseTime; 
+	//	res.exist    = this.exist;	
 		res.bandwidth= this.bandwidth;
 		return res;
 	}
@@ -111,12 +112,21 @@ public class ASPath {
 	}
 	
 	public boolean equalsPath(ASPath path){
-		if( this.started == true
-				&& this.srcASNum==path.srcASNum 
-				&& this.destASNum == path.destASNum 
-				&& this.pathNodes.equals(path.pathNodes) )
-			return true;	
-		return false;
+		boolean flag = false;
+		if(path==null)
+			return false;
+		if( this.srcASNum== path.srcASNum 
+				&& this.destASNum == path.destASNum ){
+			if(this.pathNodes.size()!=path.pathNodes.size())
+				return flag;
+			else {
+				for(int i=0; i<path.pathNodes.size(); i++)
+					if(this.pathNodes.get(i).ASNum!=path.pathNodes.get(i).ASNum)
+						return flag;
+			}
+			flag =  true;	
+		}
+		return flag;
 	}
 	
 	/**

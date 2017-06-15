@@ -8,24 +8,24 @@ public class Link{
 	public ASNode ASNodeSrc;
 	public ASNode ASNodeDest;   
 	public int linkID;
-	public int seq;
-	public int seqOld;
+	public int failed;
+	public int failedOld;
 	public int bandWidth;
+	public int seq;
 	public Attribute attribute;	
 	public boolean started = false; //true if the connection has been started
-	public boolean exist  = true;  //true  add modify, false delete 
 	
 	
 	public Link(){
 		this.ASNodeDest = new ASNode();
 		this.ASNodeSrc  = new ASNode();		
 		this.linkID     = -1;
-		this.seq        = 1;
-		this.seqOld     = 1;
+		this.failed     = 0;
+		this.failedOld  = 0;
+		this.seq        = 0;
 		this.bandWidth  = 0;
 		this.attribute  = new Attribute();
 		this.started    = false;
-		this.exist     = true;
 	}
 	
 	//maybe need check
@@ -34,11 +34,11 @@ public class Link{
 		res.ASNodeSrc  = this.ASNodeSrc.clone();
 		res.ASNodeDest = this.ASNodeDest.clone();
 		res.linkID     = this.linkID;
-		res.seq        = this.seq;
-		res.seqOld     = this.seqOld;  
+		res.failed        = this.failed;
+		res.failedOld     = this.failedOld;  
+		res.seq      = this.seq;
 		res.started    = this.started;
 		res.bandWidth  = this.bandWidth;
-		res.exist      = this.exist;
 		res.attribute  = this.attribute.clone();
 		return res;
 	}
@@ -93,9 +93,7 @@ public class Link{
 		if(this.ASNodeSrc.equals(AS.ASNodeSrc) 
 				&& this.ASNodeDest.equals(AS.ASNodeDest) 
 				&& this.linkID==AS.linkID
-				&& this.seq==AS.seq
 				&& this.bandWidth == AS.bandWidth
-				&& this.attribute.equals(AS.attribute)
 				&& this.started == AS.started)
 			return true;
 		return false;

@@ -11,6 +11,7 @@ import java.util.Map;
 public class UpdateNIB {
 	public static boolean updateNIBFromNIBMsg(byte[] msg, int ASNum){
 		boolean getNewLinkFalg = false;
+		String str = "Get new Link from " + ASNum;
 		
 		byte[] tmp = new byte[2];
 		tmp[0]  = (byte) (0x1f&msg[4]);
@@ -19,17 +20,22 @@ public class UpdateNIB {
 		//	Map<Integer, Link> tmpLinks = new HashMap<Integer, Link> ();
 		Link[] newLinks = new Link[len];	
 		for(int i=0; i< len; i++){
-			newLinks[i] = DecodeData.byte2Link(msg,6 + 16*i);			
-			
-			if(!newLinks[i].exist) //the Link need to be deleted
+			newLinks[i] = DecodeData.byte2Link(msg,6 + 20*i);			
+			if(!newLinks[i].started) //the Link need to be deleted
 				getNewLinkFalg = updateNIBDeleteLink(newLinks[i]) || getNewLinkFalg ;		
 			else
-				getNewLinkFalg = updateNIBAddLink(newLinks[i])|| getNewLinkFalg ;						
-		}
-		String str = "***************Get new Link from " + ASNum;
-		PrintIB.printLinks(newLinks, str);
-		
-	//	PrintIB.printNIB2BeUpdate(InterController.NIB2BeUpdate);
+				getNewLinkFalg = updateNIBAddLink(newLinks[i])|| getNewLinkFalg ;	
+			
+			if(getNewLinkFalg){
+				str = "Update, Get new Link from " + ASNum;
+				PrintIB.printLink(newLinks[i], str);
+			}
+			else{
+				str = "NOT Update the Link from " + ASNum;
+				PrintIB.printLink(newLinks[i], str);
+			}
+				
+		}		
 		return getNewLinkFalg;
 	}
 
@@ -41,29 +47,35 @@ public class UpdateNIB {
 		if(Link2Bemoved==null)
 			return getNewLinkFalg;
 		
-		Link2Bemoved.exist  = false;
 		Link2Bemoved.started = false;
 		int ASSrcNum  = Link2Bemoved.getASNumSrc();
 		int ASDestNum = Link2Bemoved.getASNumDest();
-		if(Link2Bemoved.seq > InterController.NIB.get(ASSrcNum).get(ASDestNum).seq){
-			if (InterController.NIB.containsKey(ASSrcNum)&&
-					InterController.NIB.get(ASSrcNum).containsKey(Link2Bemoved.getASNumDest())){
-				while(InterController.NIBWriteLock ){
-					;
-				}
-				InterController.NIBWriteLock = true; //lock NIB
-				if(InterController.myASNum == ASSrcNum)
-					System.out.printf("Error in updateNIBDeleteLink, ASSrc:%s which is myASNum", ASSrcNum);
-					
-				else
-					if(Link2Bemoved.seq > InterController.NIB.get(ASSrcNum).get(ASDestNum).seq){
-						InterController.NIB.get(ASSrcNum).get(ASDestNum).started = false;
-						InterController.neighborASNumList.remove(ASDestNum);
-					}
-				InterController.NIBWriteLock = false; //unlock NIB
-				updateNIB2BeUpdate(Link2Bemoved, false);
-				getNewLinkFalg = true;							
+		
+		if(ASSrcNum==InterController.myASNum || ASDestNum==InterController.myASNum)
+			return getNewLinkFalg;
+		
+		if (InterController.NIB.containsKey(ASSrcNum)&&
+				InterController.NIB.get(ASSrcNum).containsKey(Link2Bemoved.getASNumDest())
+				&&(compareSeq(Link2Bemoved.seq, InterController.NIB.get(ASSrcNum).get(ASDestNum).seq))){
+			while(InterController.NIBWriteLock ){
+				;
 			}
+			InterController.NIBWriteLock = true; //lock NIB
+			InterController.NIB.get(ASSrcNum).get(ASDestNum).seq = Link2Bemoved.seq;
+			if(InterController.myASNum == ASSrcNum)
+				System.out.printf("Error in updateNIBDeleteLink, ASSrc:%s which is myASNum", ASSrcNum);
+				
+			else{
+				InterController.NIB.get(ASSrcNum).get(ASDestNum).started = false;
+				if(InterController.NIB.get(ASSrcNum).get(ASDestNum).failed > 1<<15)
+					InterController.NIB.get(ASSrcNum).get(ASDestNum).failed  = 1 ;
+				else
+					InterController.NIB.get(ASSrcNum).get(ASDestNum).failed += 1 ;
+				//	InterController.neighborASNumList.remove(ASDestNum);
+			}
+			InterController.NIBWriteLock = false; //unlock NIB
+			updateNIB2BeUpdate(Link2Bemoved, false);
+			getNewLinkFalg = true;							
 		}
 		return getNewLinkFalg;
 	}
@@ -78,37 +90,45 @@ public class UpdateNIB {
 		if(Link2Bemoved==null)
 			return getNewLinkFalg;
 		
-		Link2Bemoved.exist  = false;
 		Link2Bemoved.started = false;
 		int ASSrcNum  = Link2Bemoved.getASNumSrc();
 		int ASDestNum = Link2Bemoved.getASNumDest();
-		if(Link2Bemoved.seq > InterController.NIB.get(ASSrcNum).get(ASDestNum).seq){
-			if (InterController.NIB.containsKey(ASSrcNum)&&
-					InterController.NIB.get(ASSrcNum).containsKey(ASDestNum)){
-				
-				while(InterController.NIBWriteLock ){
-					;
-				}
-				InterController.NIBWriteLock = true; //lock NIB
-				InterController.NIB.get(ASSrcNum).get(ASDestNum).started = false;
-				InterController.NIBWriteLock = false; //unlock NIB			
-				updateNIB2BeUpdate(Link2Bemoved, false);
-				getNewLinkFalg = true;							
-			}	
+	//	if(Link2Bemoved.failed > InterController.NIB.get(ASSrcNum).get(ASDestNum).failed){
+		if (InterController.NIB.containsKey(ASSrcNum)&&
+				InterController.NIB.get(ASSrcNum).containsKey(ASDestNum)){
 			
-			if (InterController.NIB.containsKey(ASDestNum)&&
-					InterController.NIB.get(ASDestNum).containsKey(ASSrcNum)){
-				while(InterController.NIBWriteLock ){
-					;
-				}
-				InterController.NIBWriteLock = true; //lock NIB
-				InterController.NIB.get(ASDestNum).get(ASSrcNum).started = false;
-				InterController.NIBWriteLock = false; //unlock NIB
-				updateNIB2BeUpdate(Link2Bemoved, false);			
-				getNewLinkFalg = true;							
-
+			while(InterController.NIBWriteLock ){
+				;
 			}
+			InterController.NIBWriteLock = true; //lock NIB
+			InterController.NIB.get(ASSrcNum).get(ASDestNum).started = false;
+			InterController.NIBWriteLock = false; //unlock NIB			
+			updateNIB2BeUpdate(Link2Bemoved, false);
+			getNewLinkFalg = true;							
+		}	
+		
+		if (InterController.NIB.containsKey(ASDestNum)&&
+				InterController.NIB.get(ASDestNum).containsKey(ASSrcNum)){
+			while(InterController.NIBWriteLock ){
+				;
+			}
+			InterController.NIBWriteLock = true; //lock NIB
+			InterController.NIB.get(ASDestNum).get(ASSrcNum).started = false;
+			if(InterController.NIB.get(ASDestNum).get(ASSrcNum).failed < 1<<15)
+				InterController.NIB.get(ASDestNum).get(ASSrcNum).failed +=1;
+			else
+				InterController.NIB.get(ASDestNum).get(ASSrcNum).failed = 1;
+			
+			if(InterController.NIB.get(ASDestNum).get(ASSrcNum).seq < 1<<15)
+				InterController.NIB.get(ASDestNum).get(ASSrcNum).seq +=1;
+			else
+				InterController.NIB.get(ASDestNum).get(ASSrcNum).seq = 1;
+			InterController.NIBWriteLock = false; //unlock NIB
+			updateNIB2BeUpdate(Link2Bemoved, false);			
+			getNewLinkFalg = true;							
+
 		}
+	//	}
 		return getNewLinkFalg;
 	}
 
@@ -127,19 +147,23 @@ public class UpdateNIB {
 		for(Map.Entry<Integer, Map<Integer,Link>> entryA: InterController.NIB.entrySet())
 			for(Map.Entry<Integer,Link> entryB: entryA.getValue().entrySet()){
 				//if the Link is myASNum->removedNode, started->false
-				if(RemoveNodeASNum == entryB.getKey() && entryA.getKey() == InterController.myASNum){
-					InterController.NIB.get(entryA.getKey()).get(RemoveNodeASNum).started = false;
-					InterController.NIB.get(entryA.getKey()).get(RemoveNodeASNum).seq +=1;
-					InterController.neighborASNumList.remove(RemoveNodeASNum);
-					updateNIB2BeUpdate(entryB.getValue(), false);
-					}
-				//delete other Link contains removeNode
-				else if(RemoveNodeASNum == entryB.getKey()||RemoveNodeASNum == entryA.getKey()){
+				if(RemoveNodeASNum == entryB.getKey() ||RemoveNodeASNum == entryA.getKey()){
 					InterController.NIB.get(entryA.getKey()).get(entryB.getKey()).started = false;
-					InterController.NIB.get(entryA.getKey()).get(RemoveNodeASNum).seq +=1;
-					updateNIB2BeUpdate(entryB.getValue().clone(), false);		
-				}	
-				
+					if(entryA.getKey() == InterController.myASNum || entryB.getKey() == InterController.myASNum){
+						if(InterController.NIB.get(entryA.getKey()).get(entryB.getKey()).failed < 1<<15)
+							InterController.NIB.get(entryA.getKey()).get(entryB.getKey()).failed +=1;
+						else
+							InterController.NIB.get(entryA.getKey()).get(entryB.getKey()).failed = 1;
+						
+						if(InterController.NIB.get(entryA.getKey()).get(entryB.getKey()).seq < 1<<15)
+							InterController.NIB.get(entryA.getKey()).get(entryB.getKey()).seq +=1;
+						else
+							InterController.NIB.get(entryA.getKey()).get(entryB.getKey()).seq = 1;
+						
+						updateNIB2BeUpdate(entryB.getValue(), false);
+					}
+				}
+				InterController.neighborASNumList.remove(RemoveNodeASNum);
 		}
 		
 		InterController.NIBWriteLock = false; //unlock NIB	
@@ -160,43 +184,49 @@ public class UpdateNIB {
 		int ASSrcNum  = newLink.ASNodeSrc.ASNum;
 		int ASDestNum = newLink.ASNodeDest.ASNum;
 		
+		if(ASSrcNum==InterController.myASNum )
+			return getNewLinkFalg;
+		
 		//update the node list		
 		addASNum2ASNumList(ASSrcNum);
 		addASNum2ASNumList(ASDestNum);
 		addASNode2ASNodeList(newLink.ASNodeSrc);
 		addASNode2ASNodeList(newLink.ASNodeDest);
 		
-		if(newLink.seq > InterController.NIB.get(ASSrcNum).get(ASDestNum).seq){
-			//update the NIB
-			while(InterController.NIBWriteLock ){
-				;
-			}
-			InterController.NIBWriteLock = true; //lock NIB
-			// if it's the new Link add to tmpLinks, if not ignore
-			if(InterController.NIB.containsKey(ASSrcNum)){
-				if(InterController.NIB.get(ASSrcNum).containsKey(ASDestNum)){
+		//update the NIB
+		while(InterController.NIBWriteLock ){
+			;
+		}
+		InterController.NIBWriteLock = true; //lock NIB
+		// if it's the new Link add to tmpLinks, if not ignore
+		if(InterController.NIB.containsKey(ASSrcNum)){
+			if(InterController.NIB.get(ASSrcNum).containsKey(ASDestNum)){
+				if(compareSeq(newLink.seq, InterController.NIB.get(ASSrcNum).get(ASDestNum).seq)){
 					if(!InterController.NIB.get(ASSrcNum).get(ASDestNum).equals(newLink)){
 						InterController.NIB.get(ASSrcNum).remove(ASDestNum); // replace the old section
 						InterController.NIB.get(ASSrcNum).put(ASDestNum, newLink.clone()); 	
 						updateNIB2BeUpdate(newLink, true);
 						getNewLinkFalg = true;
 					}
+					else
+						InterController.NIB.get(ASSrcNum).get(ASDestNum).seq = newLink.seq;
 				}
-				else{
-					InterController.NIB.get(ASSrcNum).put(ASDestNum, newLink.clone()); 	
-					updateNIB2BeUpdate(newLink, true);
-					getNewLinkFalg = true;
-				}
+			
 			}
 			else{
-				Map<Integer, Link> tmpLinks = new HashMap<Integer,Link>();
-				tmpLinks.put(newLink.ASNodeDest.ASNum, newLink.clone());
-				InterController.NIB.put(ASSrcNum,tmpLinks);				
+				InterController.NIB.get(ASSrcNum).put(ASDestNum, newLink.clone()); 	
 				updateNIB2BeUpdate(newLink, true);
 				getNewLinkFalg = true;
-			}		
-			InterController.NIBWriteLock = false; //unlock NIB		
+			}
 		}
+		else{
+			Map<Integer, Link> tmpLinks = new HashMap<Integer,Link>();
+			tmpLinks.put(newLink.ASNodeDest.ASNum, newLink.clone());
+			InterController.NIB.put(ASSrcNum,tmpLinks);				
+			updateNIB2BeUpdate(newLink, true);
+			getNewLinkFalg = true;
+		}	
+		InterController.NIBWriteLock = false; //unlock NIB		
 		if(getNewLinkFalg)
 			CreateJson.createNIBJson();		
 		
@@ -215,8 +245,6 @@ public class UpdateNIB {
 		// the add the new Link, the link should be started
 		if(ifadd && newLink.started==false) 
 			return;
-		
-		newLink.exist = ifadd;
 
 		while(InterController.updateNIBWriteLock){
 			;
@@ -224,7 +252,8 @@ public class UpdateNIB {
 		InterController.updateNIBWriteLock = true;
 			
 		for(int ASNum : InterController.neighborASNumList){
-			if(ASNum == InterController.myASNum||ASNum==ASSrcNum)
+			if(ASNum == InterController.myASNum||ASNum==ASSrcNum 
+					|| (ASSrcNum!=InterController.myASNum && ASNum==newLink.getASNumDest()))
 				continue;
 			if(InterController.NIB2BeUpdate.containsKey(ASNum)){
 				add2TheUpdateListForLink(ASNum, newLink);
@@ -300,5 +329,11 @@ public class UpdateNIB {
 	public static void addASNode2ASNodeList(ASNode node){
 		if(!InterController.ASNodeList.containsKey(node.ASNum))
 			InterController.ASNodeList.put(node.ASNum, node.clone()); //only add, do not delete. as it can be a lonely AS		
+	}
+	
+	public static boolean compareSeq(int seq, int seqInNIB){
+		if(seq==0 || seq>seqInNIB)
+			return true;
+		return false;
 	}
 }

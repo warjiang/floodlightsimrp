@@ -130,13 +130,9 @@ public class EncodeData {
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatOpen(int version, int holdingTime, int keepAliveTime, int myASNum, AttributeTLV[] attr, boolean flag){
-		int len = 10 ;
-		byte optLen = 0x00;
-		if(attr!=null){
-			optLen = 0x02;
-			len = 11 + 8*attr.length; 
-		}
+	public static byte[] creatOpen(int version, int keepAliveTime, int myASNum, boolean flag){
+		int len = 9 ;
+		
 		byte[] open = new byte[len];
 		byte[] tmp;	
 		
@@ -146,31 +142,17 @@ public class EncodeData {
 		byte bFlag = 0x00;
 		if(flag)
 			bFlag = 0x01;
-		open[4] = (byte) ((byte)open[4] | (tmp[1]<<2) | optLen|bFlag);
+		open[4] = (byte) ((byte)open[4] | (tmp[1]<<1) |bFlag);
 		
 		tmp = Integer2ByteArray(myASNum);
 		for(int i =0; i<2; i++)
 			open[5+i] = tmp[i];
 		
-		tmp = Integer2ByteArray(holdingTime); //holdingTime
-		open[7] = (byte)(tmp[0]<<4);
-		open[7] = (byte)((byte)open[7] | (tmp[1]>>>4));
-		open[8] = (byte)(tmp[1]<<4);
 		
 		tmp = Integer2ByteArray(keepAliveTime); // keepAliveTime
-		open[8] = (byte) ((byte)open[8] | (tmp[0]<<4));
-		open[9] = tmp[1];
-		
-		if(attr!=null) {
-			tmp = Integer2ByteArray(attr.length); // OptLen should < 256
-			open[10] = tmp[1];
+		for(int i =0; i<2; i++)
+			open[7+i] = tmp[i];
 			
-			for(int i=0; i<attr.length; i++){
-				tmp = AttributeTLV.attributeTLV2ByteArray(attr[i]);
-				for(int j=0; j<8; j++)
-					open[10+8*i+j] = tmp[j];
-			}
-		}	
 		return open;		
 	}
 	
@@ -193,10 +175,6 @@ public class EncodeData {
 		
 		//creat msg head
 		keepAlive = setHead(keepAlive, 2, 2);	
-		
-	//	byte bFlag = 0x00;
-		
-	//	keepAlive[4] = (byte)(keepAlive[4] | (bFlag<<4));
 		
 		long timeStamp = System.currentTimeMillis();
 		tmp = long2ByteArray(timeStamp);
@@ -265,8 +243,8 @@ public class EncodeData {
 	
 
 	/** 
-	 * turn the neighbor to byte   16byte
-	 * length = 16 * 8
+	 * turn the neighbor to byte   20byte
+	 * length = 20 * 8
 	 * ***************************
      *     type        1
      *     linkID      5
@@ -276,7 +254,8 @@ public class EncodeData {
      *     destASNum   16
      *     srcIP       32
      *     destIP      32
-     *     seq         16   
+     *     seq         16
+     *     bandWidth   32 
 	 * @param neighborSection
 	 * @return
 	 * @author xftony
@@ -302,26 +281,26 @@ public class EncodeData {
 		
 		tmp = Integer2ByteArray(link.ASNodeSrc.ASNum);
 		for(int j=0; j<2; j++)
-			data[2] = tmp[j];
+			data[2+j] = tmp[j];
 		
 		tmp = Integer2ByteArray(link.ASNodeDest.ASNum);
 		for(int j=0; j<2; j++)
-			data[4] = tmp[j];
+			data[4+j] = tmp[j];
 		
 		tmp = Int2ByteArray(IPPrefix.IP2Prefix(link.ASNodeSrc.ipPrefix));
 		for(int j=0; j<4; j++)
-			data[6] = tmp[j];
+			data[6+j] = tmp[j];
 		tmp = Int2ByteArray(IPPrefix.IP2Prefix(link.ASNodeDest.ipPrefix));
 		for(int j=0; j<4; j++)
-			data[10] = tmp[j];
+			data[10+j] = tmp[j];
 		
 		tmp = Integer2ByteArray(link.seq);
 		for(int j=0; j<2; j++)
-			data[14] = tmp[j];
+			data[14+j] = tmp[j];
 		
 		tmp = Int2ByteArray(link.bandWidth);
 		for(int j=0; j<4; j++)
-			data[16] = tmp[j];
+			data[16+j] = tmp[j];
 		return data;
 	}
 
@@ -342,7 +321,7 @@ public class EncodeData {
 		//creat mag head
 		updateNIB = setHead(updateNIB, 3, 3);	
 		
-		tmp = Int2ByteArray(links.length);
+		tmp = Integer2ByteArray(links.length);
 		updateNIB[4] = (byte) (updateNIB[4] | (tmp[0]&0x1f)) ;
 		updateNIB[5] = tmp[1];
 	
@@ -371,18 +350,18 @@ public class EncodeData {
 	 * @author xftony
 	 */
 	public static byte[] creatUpdateNIB(Link link){
-		int len = 6+16;
+		int len = 6+20;
 		byte[] updateNIB = new byte[len];
 		byte[] tmp;
 		
 		//creat mag head
 		updateNIB = setHead(updateNIB, 3, 3);	
 		
-		tmp = Int2ByteArray(1);
+		tmp = Integer2ByteArray(1);
 		updateNIB[4] = (byte) (updateNIB[4] | (tmp[0]&0x1f)) ;
 		updateNIB[5] = tmp[1];
 		
-		for(int j=0; j<16; j++)
+		for(int j=0; j<20; j++)
 			updateNIB[6 + j] = tmp[j];
 		
 		return updateNIB;
@@ -403,35 +382,35 @@ public class EncodeData {
 	 * @return
 	 * @author xftony
 	 */
-	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Link>> NIB){
+	public static byte[] creatUpdateNIB(Map<Integer,Map<Integer,Link>> NIB, int ASNum){
 		int listLen = 0;
 		for(Map.Entry<Integer,Map<Integer,Link>> entryA : NIB.entrySet())  //every src
 			for(Map.Entry<Integer,Link> entryB : entryA.getValue().entrySet()){
-				if(entryB.getValue().started)
+				if(entryB.getValue().started && entryB.getValue().ASNodeSrc.ASNum!=ASNum)
 					listLen += 1;
 			}
 		if(listLen == 0)	
 			return null;
 		
-		int len = 6+16*listLen;
+		int len = 6+20*listLen;
 		byte[] updateNIB = new byte[len];
 		byte[] tmp;
 		
 		//creat mag head
 		updateNIB = setHead(updateNIB, 3, 3);	
 		
-		tmp = Int2ByteArray(listLen);
+		tmp = Integer2ByteArray(listLen);
 		updateNIB[4] = (byte) (updateNIB[4] | (tmp[0]&0x1f)) ;
 		updateNIB[5] = tmp[1];
 
 		int i = 0;
 		for(Map.Entry<Integer,Map<Integer,Link>> entryA : NIB.entrySet())  //every src
 			for(Map.Entry<Integer,Link> entryB : entryA.getValue().entrySet() ) {
-				if(!entryB.getValue().started)
+				if(!entryB.getValue().started || entryB.getValue().ASNodeSrc.ASNum==ASNum)
 					continue;
 				tmp = link2Byte(entryB.getValue());
-				for(int j=0; j<16; j++)
-					updateNIB[6+ 16 *i+j] = tmp[j];
+				for(int j=0; j<20; j++)
+					updateNIB[6+ 20 *i+j] = tmp[j];
 				i++;
 		}
 
@@ -453,33 +432,35 @@ public class EncodeData {
 	}
 	
 	public static byte[] ASPath2Byte(ASPath path){
-		int len = 9 + 3*path.pathNodes.size();
+		int len = 7 + 3*path.pathNodes.size();
 		
 		byte[] data = new byte[len];
 		byte[] tmp;
-		if(path.exist)
-			data[0] = (byte) (1<<7);
+		if(path.started)
+			data[0] = (byte) 0x80;
 		
 		tmp = Integer2ByteArray(path.pathID);
 		data[0] = (byte) (data[0] | (0x7f & tmp[1]));
+		
+	//	System.out.printf("&&&&&&&&&&&&&&&&&&&&&&&&in Encode, path:%s->%s, pathID:%s ,data[0]is %s, tmp is%s\n",
+	//			path.srcASNum, path.destASNum, path.pathID, data[0], tmp[1]);
+
 		
 		tmp = Integer2ByteArray(path.pathNodes.size());
 		for(int i=0; i<2; i++)
 			data[1+i] = tmp[i];
 		
-		tmp = Integer2ByteArray(path.seq);
-		for(int i=0; i<2; i++)
-			data[3+i] = tmp[i];
 		tmp = Integer2ByteArray(path.srcASNum);
 		for(int i=0; i<2; i++)
-			data[5+i] = tmp[i];
+			data[3+i] = tmp[i];
 		tmp = Integer2ByteArray(path.destASNum);
 		for(int i=0; i<2; i++)
-			data[7+i] = tmp[i];
+			data[5+i] = tmp[i];
+		
 		for(int i=0; i<path.pathNodes.size(); i++){
 			tmp = pathNode2Byte(path.pathNodes.get(i));
 			for(int j=0; j<3; j++)
-				data[9 + 3*i +j] = tmp[j];
+				data[7 + 3*i +j] = tmp[j];
 		}	
 		return data;
 	}
@@ -498,27 +479,24 @@ public class EncodeData {
 	 * @author xftony
 	 */
 	public static byte[] creatUpdateRIB(LinkedList<ASPath> ASPaths){
-		int len = 7;  // 4+1+1+1
+		int len = 6;  // 4+1+1
 		for(int i=0; i<ASPaths.size(); i++)
-			len +=(9 + ASPaths.get(i).pathNodes.size()*3);  
+			len +=(7 + ASPaths.get(i).pathNodes.size()*3);  
 		
 		byte[] updateRIB = new byte[len];
 		byte[] tmp ;
 		
 		updateRIB = setHead(updateRIB, 4, 4);	
 		
-		tmp = Integer2ByteArray(len/3);  //3byte
+		tmp = Integer2ByteArray(len);  //3byte
 		updateRIB[4] = (byte) (updateRIB[4] | (tmp[0]&0x1f)) ;
 		updateRIB[5] = tmp[1];
-		
-		tmp = Integer2ByteArray(ASPaths.size());
-		updateRIB[6] = tmp[1];
-		
+				
 		int index=0;
 		for(int i=0; i<ASPaths.size(); i++){
 			tmp = ASPath2Byte(ASPaths.get(i));
 			for(int j=0; j<tmp.length; j++){
-				updateRIB[7 + index + j] = tmp[j];
+				updateRIB[6 + index + j] = tmp[j];
 				
 			}
 			index += tmp.length;
@@ -542,11 +520,9 @@ public class EncodeData {
 		byte[] notification = new byte[len];
 		//creat msg head
 		notification = setHead(notification, 5, 5);	
-		
 		notification[5] = errorType;
 		notification[6] = errorNum;
 		
-
 		return notification;
 		
 	}

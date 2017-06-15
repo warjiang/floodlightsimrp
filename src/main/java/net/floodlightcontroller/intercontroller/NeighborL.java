@@ -16,20 +16,22 @@ public class NeighborL{
 	public int bandWidth;
 	public Attribute attribute;  //for now, it's not used 
 	public int linkID;
-	public int seq;
+	public int failed;  //failed times
 	public boolean started = false; //true if the connection has been started
+	public int keepAliveTime ;
 	
 	public NeighborL(){
 		this.ASNodeDest = new ASNode();
 		this.outPort    = OFPort.of(0);
 		this.outSwitch  = DatapathId.of("0");
 		this.inPort     = OFPort.of(0);
-		this.inSwitch  = DatapathId.of("0");
+		this.inSwitch   = DatapathId.of("0");
 		this.attribute  = new Attribute();
 		this.linkID     = -1;
-		this.seq        = 1;
+		this.failed     = 0;
 		this.bandWidth  = 0;
 		this.started    = false;
+		this.keepAliveTime = InterController.myConf.keepAliveTime;
 	}
 	
 	
@@ -43,7 +45,7 @@ public class NeighborL{
 		res.inSwitch   = this.inSwitch;
 		res.attribute  = this.attribute.clone();
 		res.linkID     = this.linkID;
-		res.seq        = this.seq;   
+		res.failed     = this.failed;   
 		res.started    = this.started;
 		res.bandWidth  = this.bandWidth;
 		return res;
@@ -84,9 +86,8 @@ public class NeighborL{
 	public int getLinkID(){
 		return this.linkID;
 	}
-	
-	public int getSeq(){
-		return this.seq;
+	public int getFailed(){
+		return this.failed;
 	}
 	
 	public void setAttribute(int latency){
